@@ -11,6 +11,36 @@ import {
   listFeedback,
   voteForFeedback,
 } from "./api.js";
+import { FinancialCalculator } from "./FinancialCalculator.js";
+
+type View = "board" | "calculator";
+
+export function App() {
+  const [view, setView] = useState<View>("board");
+  return (
+    <>
+      <nav className="app-nav" aria-label="Primary">
+        <button
+          type="button"
+          className={view === "board" ? "active" : ""}
+          aria-current={view === "board" ? "page" : undefined}
+          onClick={() => setView("board")}
+        >
+          Feedback board
+        </button>
+        <button
+          type="button"
+          className={view === "calculator" ? "active" : ""}
+          aria-current={view === "calculator" ? "page" : undefined}
+          onClick={() => setView("calculator")}
+        >
+          Financial calculator
+        </button>
+      </nav>
+      {view === "board" ? <FeedbackBoard /> : <FinancialCalculator />}
+    </>
+  );
+}
 
 const emptyForm: CreateFeedbackRequest = {
   title: "",
@@ -28,7 +58,7 @@ const getClientId = (): string => {
   return created;
 };
 
-export function App() {
+function FeedbackBoard() {
   const [items, setItems] = useState<Feedback[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
