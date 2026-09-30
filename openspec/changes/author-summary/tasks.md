@@ -32,10 +32,11 @@
   `summary.displayName` is the normalized (trimmed) matched value for a hit
   or the trimmed requested value for a zero-valued result; never returns
   `400`/`404` for this route, and never includes feedback IDs, vote
-  identifiers, or storage keys in the response; verify with a new API test
-  asserting known-name totals, the zero-valued response for an unknown,
-  empty, or over-length name, and the exact response envelope shape (no
-  extra keys outside `summary`).
+  identifiers, or storage keys in the response; verify with a new case in
+  `tests/api.test.ts` (the existing server-side supertest suite for
+  `src/server/app.ts`) asserting known-name totals, the zero-valued
+  response for an unknown, empty, or over-length name, and the exact
+  response envelope shape (no extra keys outside `summary`).
 
 ## 4. Client UI
 
@@ -43,7 +44,9 @@
   `src/client/api.ts` that `encodeURIComponent`s the display name when
   building the request URL and follows the existing
   `ApiRequestError`/fetch conventions; verify with a new case in
-  `tests/api.test.ts` covering a name with spaces/special characters.
+  `tests/App.test.tsx` (not `tests/api.test.ts`, which is the server-side
+  supertest suite owned by task 3.1) asserting the mocked `fetch` receives
+  the encoded URL for a name with spaces/special characters.
 - [ ] 4.2 Add a shared summary panel/dialog component to `src/client/`
   (wired into `App.tsx`) reachable from two triggers: (a) a
   button/link on each feedback card's existing "By {displayName}" text,
