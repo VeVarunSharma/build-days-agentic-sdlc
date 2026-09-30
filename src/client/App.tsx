@@ -1,13 +1,15 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   feedbackCategories,
   fieldLimits,
+  type AuthorSummary,
   type CreateFeedbackRequest,
   type Feedback,
 } from "../shared/contracts.js";
 import {
   ApiRequestError,
   createFeedback,
+  getAuthorSummary,
   listFeedback,
   voteForFeedback,
 } from "./api.js";
@@ -39,10 +41,40 @@ export function App() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [notice, setNotice] = useState<string>();
   const formStatusId = useId();
+  const [summaryName, setSummaryName] = useState("");
+  const [summary, setSummary] = useState<AuthorSummary>();
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string>();
+  const [summaryRefresh, setSummaryRefresh] = useState(0);
+  const summaryRequest = useRef(0);
 
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    const name = summaryName.trim();
+    const requestId = ++summaryRequest.current;
+    setSummary(undefined);
+    setSummaryError(undefined);
+    if (!name) {
+      setSummaryLoading(false);
+      return;
+    }
+    setSummaryLoading(true);
+    getAuthorSummary(name)
+      .then((result) => {
+        if (requestId === summaryRequest.current) setSummary(result);
+      })
+      .catch((summaryLoadError: unknown) => {
+        if (requestId === summaryRequest.current) {
+          setSummaryError(messageFor(summaryLoadError));
+        }
+      })
+      .finally(() => {
+        if (requestId === summaryRequest.current) setSummaryLoading(false);
+      });
+  }, [summaryName, summaryRefresh]);
 
   async function load() {
     setLoading(true);
@@ -69,6 +101,7 @@ export function App() {
       setItems((current) => [feedback, ...current]);
       setForm(emptyForm);
       setNotice("Feedback added to the board.");
+      setSummaryRefresh((count) => count + 1);
     } catch (submitError) {
       if (submitError instanceof ApiRequestError) {
         setFieldErrors(submitError.fieldErrors ?? {});
@@ -90,6 +123,7 @@ export function App() {
           candidate.id === item.id ? result.feedback : candidate,
         ),
       );
+      setSummaryRefresh((count) => count + 1);
       setNotice(
         result.alreadyVoted
           ? "Your vote was already recorded."
@@ -176,6 +210,43 @@ export function App() {
               </div>
             )}
             {notice && <p className="success">{notice}</p>}
+          </div>
+        </section>
+
+        <section className="panel summary-panel" aria-labelledby="summary-title">
+          <h2 id="summary-title">Author summary</h2>
+          <div className="field">
+            <label htmlFor="summaryName">Author display name</label>
+            <input
+              id="summaryName"
+              name="summaryName"
+              value={summaryName}
+              maxLength={fieldLimits.displayName}
+              onChange={(event) => setSummaryName(event.target.value)}
+            />
+          </div>
+          <div className="status" aria-live="polite">
+            {summaryLoading && <p role="status">Loading summary&hellip;</p>}
+            {summaryError && (
+              <p className="error" role="alert">
+                {summaryError}
+              </p>
+            )}
+            {summary &&
+              (summary.itemCount === 0 ? (
+                <p>No feedback found for {summary.displayName}.</p>
+              ) : (
+                <dl className="summary-stats">
+                  <div>
+                    <dt>Feedback items</dt>
+                    <dd>{summary.itemCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Total votes</dt>
+                    <dd>{summary.totalVotes}</dd>
+                  </div>
+                </dl>
+              ))}
           </div>
         </section>
 

@@ -38,6 +38,14 @@ export const voteRequestSchema = z.object({
     .regex(/^[A-Za-z0-9_-]+$/, "The workshop client ID is invalid."),
 });
 
+export const authorSummaryQuerySchema = z.object({
+  displayName: z
+    .string({ error: "Enter a display name." })
+    .trim()
+    .min(1, "Enter a display name.")
+    .max(fieldLimits.displayName),
+});
+
 export type FeedbackCategory = (typeof feedbackCategories)[number];
 export type CreateFeedbackRequest = z.infer<typeof createFeedbackSchema>;
 export type VoteRequest = z.infer<typeof voteRequestSchema>;
@@ -47,6 +55,28 @@ export interface Feedback extends CreateFeedbackRequest {
   votes: number;
   createdAt: string;
 }
+
+export interface AuthorSummary {
+  displayName: string;
+  itemCount: number;
+  totalVotes: number;
+}
+
+export const summarizeAuthor = (
+  items: ReadonlyArray<Pick<Feedback, "displayName" | "votes">>,
+  displayName: string,
+): AuthorSummary =>
+  items.reduce<AuthorSummary>(
+    (summary, item) =>
+      item.displayName === displayName
+        ? {
+            ...summary,
+            itemCount: summary.itemCount + 1,
+            totalVotes: summary.totalVotes + item.votes,
+          }
+        : summary,
+    { displayName, itemCount: 0, totalVotes: 0 },
+  );
 
 export interface VoteResult {
   feedback: Feedback;
