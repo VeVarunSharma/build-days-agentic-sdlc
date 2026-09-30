@@ -136,3 +136,80 @@ describe("feedback API", () => {
     expect(response.body.error.code).toBe("INTERNAL_ERROR");
   });
 });
+
+describe("author summary API", () => {
+  const post = (app: ReturnType<typeof createApp>, displayName: string) =>
+    request(app).post("/api/feedback").send({
+      title: "Idea",
+      description: "Something useful.",
+      category: "idea",
+      displayName,
+    });
+
+  it("aggregates items and votes and reflects updates", async () => {
+    const app = createApp({
+      storage: new InMemoryFeedbackStorage(),
+      logger: silentLogger,
+    });
+    const first = await post(app, "Sam").expect(201);
+    await post(app, "Sam").expect(201);
+    await post(app, "Lin").expect(201);
+
+    await request(app)
+      .get("/api/author-summary")
+      .query({ displayName: "Sam" })
+      .expect(200, { displayName: "Sam", itemCount: 2, totalVotes: 0 });
+
+    await request(app)
+      .post(`/api/feedback/${first.body.feedback.id as string}/votes`)
+      .send({ clientId: "client-1" })
+      .expect(201);
+
+    const summary = await request(app)
+      .get("/api/author-summary")
+      .query({ displayName: " Sam " })
+      .expect(200);
+    expect(summary.body).toEqual({
+      displayName: "Sam",
+      itemCount: 2,
+      totalVotes: 1,
+    });
+    expect(Object.keys(summary.body).sort()).toEqual([
+      "displayName",
+      "itemCount",
+      "totalVotes",
+    ]);
+    expect(summary.text).not.toContain("client-1");
+  });
+
+  it("returns zeros for unknown and differently cased names", async () => {
+    const app = createApp({
+      storage: new InMemoryFeedbackStorage(),
+      logger: silentLogger,
+    });
+    await post(app, "Sam").expect(201);
+    await request(app)
+      .get("/api/author-summary")
+      .query({ displayName: "Nobody" })
+      .expect(200, { displayName: "Nobody", itemCount: 0, totalVotes: 0 });
+    await request(app)
+      .get("/api/author-summary")
+      .query({ displayName: "sam" })
+      .expect(200, { displayName: "sam", itemCount: 0, totalVotes: 0 });
+  });
+
+  it("rejects missing, blank, and overlong display names", async () => {
+    const app = createApp({
+      storage: new InMemoryFeedbackStorage(),
+      logger: silentLogger,
+    });
+    for (const query of [{}, { displayName: "   " }, { displayName: "x".repeat(61) }]) {
+      const response = await request(app)
+        .get("/api/author-summary")
+        .query(query)
+        .expect(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(response.body.error.fieldErrors.displayName).toHaveLength(1);
+    }
+  });
+});
