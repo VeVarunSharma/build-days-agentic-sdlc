@@ -7,9 +7,12 @@ import { rateLimit } from "express-rate-limit";
 import { ZodError, type ZodType } from "zod";
 import {
   createFeedbackSchema,
+  defaultFeedbackSortMode,
+  feedbackSortModeSchema,
   voteRequestSchema,
   type ApiError,
   type CreateFeedbackRequest,
+  type FeedbackSortMode,
   type VoteRequest,
 } from "../shared/contracts.js";
 import { logger as defaultLogger, type Logger } from "./logger.js";
@@ -85,8 +88,26 @@ export const createApp = ({
     }
   });
 
-  app.get("/api/feedback", async (_request, response) => {
-    response.json({ items: await storage.list() });
+  app.get("/api/feedback", async (request, response) => {
+    let sortMode: FeedbackSortMode = defaultFeedbackSortMode;
+    if (request.query.sort !== undefined) {
+      const result = feedbackSortModeSchema.safeParse(request.query.sort);
+      if (!result.success) {
+        response.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Check the highlighted fields and try again.",
+            fieldErrors: {
+              sort: result.error.issues.map((issue) => issue.message),
+            },
+          },
+        } satisfies ApiError);
+        return;
+      }
+      sortMode = result.data;
+    }
+
+    response.json({ items: await storage.list(sortMode) });
   });
 
   app.post(

@@ -2,12 +2,12 @@
 
 ## 1. Shared sorting contract and storage
 
-- [ ] 1.1 Define the supported sort modes and shared deterministic comparator in the shared layer; verify the contract and comparator tests cover both modes and equal-value tie-breakers.
-- [ ] 1.2 Update the storage interface and in-memory and Azure Table adapters to list feedback in the requested mode; verify storage tests prove newest-first defaults and exact ordering for both modes.
+- [x] 1.1 Define the supported sort modes and shared deterministic comparator in the shared layer; verify the contract and comparator tests cover both modes and equal-value tie-breakers.
+- [x] 1.2 Update the storage interface and in-memory and Azure Table adapters to list feedback in the requested mode; verify storage tests prove newest-first defaults and exact ordering for both modes.
 
 ## 2. API query behavior
 
-- [ ] 2.1 Add sort-query parsing, defaulting, and validation to the feedback list endpoint; verify API tests cover omitted values, both supported values, empty values (`?sort` and `?sort=`), repeated values, unknown values, the HTTP 400 `VALIDATION_ERROR` envelope with `fieldErrors.sort`, and deterministic response order.
+- [x] 2.1 Add sort-query parsing, defaulting, and validation to the feedback list endpoint; verify API tests cover omitted values, both supported values, empty values (`?sort` and `?sort=`), repeated values, unknown values, the HTTP 400 `VALIDATION_ERROR` envelope with `fieldErrors.sort`, and deterministic response order.
 
 ## 3. Accessible board control and updates
 
