@@ -9,14 +9,19 @@ import { DefaultAzureCredential } from "@azure/identity";
 import type {
   CreateFeedbackRequest,
   Feedback,
+  FeedbackSortMode,
   VoteResult,
+} from "../shared/contracts.js";
+import {
+  compareFeedback,
+  defaultFeedbackSortMode,
 } from "../shared/contracts.js";
 
 export class FeedbackNotFoundError extends Error {}
 
 export interface FeedbackStorage {
   initialize(): Promise<void>;
-  list(): Promise<Feedback[]>;
+  list(sortMode?: FeedbackSortMode): Promise<Feedback[]>;
   create(input: CreateFeedbackRequest, options?: CreateOptions): Promise<Feedback>;
   vote(feedbackId: string, clientId: string): Promise<VoteResult>;
   checkHealth(): Promise<void>;
@@ -52,10 +57,10 @@ export class InMemoryFeedbackStorage implements FeedbackStorage {
 
   async initialize(): Promise<void> {}
 
-  list(): Promise<Feedback[]> {
+  list(sortMode: FeedbackSortMode = defaultFeedbackSortMode): Promise<Feedback[]> {
     return Promise.resolve(
       [...this.feedback.values()].sort((a, b) =>
-        b.createdAt.localeCompare(a.createdAt),
+        compareFeedback(a, b, sortMode),
       ),
     );
   }
@@ -125,7 +130,9 @@ export class AzureTableFeedbackStorage implements FeedbackStorage {
     }
   }
 
-  async list(): Promise<Feedback[]> {
+  async list(
+    sortMode: FeedbackSortMode = defaultFeedbackSortMode,
+  ): Promise<Feedback[]> {
     const items: Feedback[] = [];
     const entities = this.table.listEntities<FeedbackEntity>({
       queryOptions: { filter: odata`rowKey eq ${"feedback"}` },
@@ -133,7 +140,7 @@ export class AzureTableFeedbackStorage implements FeedbackStorage {
     for await (const entity of entities) {
       items.push(toFeedback(entity));
     }
-    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return items.sort((a, b) => compareFeedback(a, b, sortMode));
   }
 
   async create(
