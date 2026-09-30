@@ -1,3 +1,7 @@
+import {
+  defaultFeedbackSortMode,
+  type FeedbackSortMode,
+} from "../shared/contracts.js";
 import type {
   ApiError,
   CreateFeedbackRequest,
@@ -33,8 +37,14 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export const listFeedback = async (): Promise<Feedback[]> => {
-  const result = await request<{ items: Feedback[] }>("/api/feedback");
+export const listFeedback = async (
+  sortMode: FeedbackSortMode = defaultFeedbackSortMode,
+): Promise<Feedback[]> => {
+  const query =
+    sortMode === defaultFeedbackSortMode
+      ? ""
+      : `?sort=${encodeURIComponent(sortMode)}`;
+  const result = await request<{ items: Feedback[] }>(`/api/feedback${query}`);
   return result.items;
 };
 
