@@ -113,3 +113,105 @@ describe("feedback board", () => {
     expect(await screen.findByRole("heading", { name: "No feedback yet" })).toBeVisible();
   });
 });
+
+describe("author summary panel", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  const summaryBody = (itemCount: number, totalVotes: number) => ({
+    displayName: "Sam",
+    itemCount,
+    totalVotes,
+  });
+
+  it("announces loading then shows totals", async () => {
+    let resolve!: (response: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) =>
+      String(input).startsWith("/api/author-summary")
+        ? new Promise<Response>((r) => (resolve = r))
+        : Promise.resolve(jsonResponse({ items: [] })),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "No feedback yet" });
+    await user.type(screen.getByLabelText("Author display name"), "Sam");
+    expect(await screen.findByText("Loading summary…")).toBeVisible();
+    resolve(jsonResponse(summaryBody(2, 5)));
+    expect(await screen.findByText("Feedback items")).toBeVisible();
+    expect(screen.getByText("Total votes").nextElementSibling).toHaveTextContent("5");
+    expect(screen.getByText("Feedback items").nextElementSibling).toHaveTextContent("2");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/author-summary?displayName=Sam",
+      expect.anything(),
+    );
+  });
+
+  it("explains an empty result", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).startsWith("/api/author-summary")
+        ? jsonResponse(summaryBody(0, 0))
+        : jsonResponse({ items: [] }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByLabelText("Author display name"), "Sam");
+    expect(await screen.findByText("No feedback found for Sam.")).toBeVisible();
+  });
+
+  it("shows an alert on error while the board stays usable", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).startsWith("/api/author-summary")
+        ? jsonResponse(
+            { error: { code: "SERVER_ERROR", message: "Summary unavailable." } },
+            500,
+          )
+        : jsonResponse({ items: [] }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByLabelText("Author display name"), "Sam");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Summary unavailable.");
+    expect(screen.getByRole("button", { name: "Add feedback" })).toBeEnabled();
+  });
+
+  it("refetches after posting feedback", async () => {
+    let itemCount = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, options) => {
+      const url = String(input);
+      if (url.startsWith("/api/author-summary")) {
+        return jsonResponse(summaryBody(itemCount, 0));
+      }
+      if (options?.method === "POST") {
+        itemCount = 1;
+        return jsonResponse(
+          {
+            feedback: {
+              id: "f1",
+              title: "T",
+              description: "D",
+              category: "content",
+              displayName: "Sam",
+              votes: 0,
+              createdAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+          201,
+        );
+      }
+      return jsonResponse({ items: [] });
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByLabelText("Author display name"), "Sam");
+    expect(await screen.findByText("No feedback found for Sam.")).toBeVisible();
+    await user.type(screen.getByLabelText("Title"), "T");
+    await user.type(screen.getByLabelText("Description"), "D");
+    await user.type(screen.getByLabelText("Display name"), "Sam");
+    await user.click(screen.getByRole("button", { name: "Add feedback" }));
+    await waitFor(() =>
+      expect(screen.getByText("Feedback items").nextElementSibling).toHaveTextContent("1"),
+    );
+  });
+});

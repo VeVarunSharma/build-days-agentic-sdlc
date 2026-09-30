@@ -1,6 +1,7 @@
 import type {
   ApiError,
   CreateFeedbackRequest,
+  AuthorSummary,
   Feedback,
   VoteResult,
 } from "../shared/contracts.js";
@@ -37,6 +38,13 @@ export const listFeedback = async (): Promise<Feedback[]> => {
   const result = await request<{ items: Feedback[] }>("/api/feedback");
   return result.items;
 };
+
+export const getAuthorSummary = (
+  displayName: string,
+): Promise<AuthorSummary> =>
+  request<AuthorSummary>(
+    `/api/author-summary?displayName=${encodeURIComponent(displayName)}`,
+  );
 
 export const createFeedback = async (
   input: CreateFeedbackRequest,

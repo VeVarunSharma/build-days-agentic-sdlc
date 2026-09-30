@@ -12,10 +12,10 @@
 
 ## 3. React panel (owner: `src/client/*`, `tests/App.test.tsx`; depends on 1, parallel with 2)
 
-- [ ] 3.1 Add fetch helper in `src/client/api.ts` and the panel with labelled input in `App.tsx`; styles in `styles.css`
-- [ ] 3.2 Implement loading, empty, success, error states with accessible roles and refetch after name change, post, and vote
-- [ ] 3.3 Add UI tests for each panel scenario
-- [ ] 3.4 Run `npx vitest run tests/App.test.tsx`
+- [x] 3.1 Add fetch helper in `src/client/api.ts` and the panel with labelled input in `App.tsx`; styles in `styles.css`
+- [x] 3.2 Implement loading, empty, success, error states with accessible roles and refetch after name change, post, and vote
+- [x] 3.3 Add UI tests for each panel scenario
+- [x] 3.4 Run `npx vitest run tests/App.test.tsx`
 
 ## 4. Evidence and documentation (depends on 2, 3)
 
