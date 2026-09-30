@@ -1,5 +1,6 @@
 import type {
   ApiError,
+  AuthorSummary,
   CreateFeedbackRequest,
   Feedback,
   VoteResult,
@@ -56,3 +57,10 @@ export const voteForFeedback = (
     method: "POST",
     body: JSON.stringify({ clientId }),
   });
+
+export const getAuthorSummary = (
+  displayName: string,
+): Promise<AuthorSummary> =>
+  request<{ summary: AuthorSummary }>(
+    `/api/authors/${encodeURIComponent(displayName)}/summary`,
+  ).then((result) => result.summary);

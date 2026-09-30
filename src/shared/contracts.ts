@@ -60,3 +60,9 @@ export interface ApiError {
     fieldErrors?: Record<string, string[]>;
   };
 }
+
+export interface AuthorSummary {
+  displayName: string;
+  itemCount: number;
+  totalVotes: number;
+}

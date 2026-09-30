@@ -296,6 +296,64 @@ time,
   text-align: center;
 }
 
+.summary-panel {
+  grid-column: 1 / -1;
+  padding: 1.5rem;
+}
+
+.summary-panel form {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.summary-panel label {
+  flex: 1;
+}
+
+.summary-panel form > button {
+  color: white;
+  background: #5b45c8;
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.72rem 1rem;
+  font-weight: 800;
+}
+
+.summary-status {
+  margin-top: 1rem;
+}
+
+.summary-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0;
+}
+
+.summary-result dt {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.summary-result dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.author-link {
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
 @media (max-width: 760px) {
   main {
     grid-template-columns: 1fr;

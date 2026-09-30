@@ -7,6 +7,7 @@ import {
 } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
 import type {
+  AuthorSummary,
   CreateFeedbackRequest,
   Feedback,
   VoteResult,
@@ -19,6 +20,7 @@ export interface FeedbackStorage {
   list(): Promise<Feedback[]>;
   create(input: CreateFeedbackRequest, options?: CreateOptions): Promise<Feedback>;
   vote(feedbackId: string, clientId: string): Promise<VoteResult>;
+  summarizeByDisplayName(displayName: string): Promise<AuthorSummary>;
   checkHealth(): Promise<void>;
 }
 
@@ -45,6 +47,28 @@ const toFeedback = (entity: FeedbackEntity): Feedback => ({
   votes: entity.votes,
   createdAt: entity.createdAt,
 });
+
+// Shared by both adapters: aggregates over the existing list() read path
+// (no new persisted field, no new partition/row key scheme). Matching is an
+// exact, trimmed-name comparison; any non-matching input (unknown, empty,
+// whitespace-only, or over-limit) reduces to a zero-valued summary rather
+// than an error.
+const summarizeFeedback = (
+  items: Feedback[],
+  displayName: string,
+): AuthorSummary => {
+  const normalized = displayName.trim();
+  const matches = items.filter((item) => item.displayName.trim() === normalized);
+  const [first] = matches;
+  if (!first) {
+    return { displayName: normalized, itemCount: 0, totalVotes: 0 };
+  }
+  return {
+    displayName: first.displayName.trim(),
+    itemCount: matches.length,
+    totalVotes: matches.reduce((total, item) => total + item.votes, 0),
+  };
+};
 
 export class InMemoryFeedbackStorage implements FeedbackStorage {
   private readonly feedback = new Map<string, Feedback>();
@@ -96,6 +120,10 @@ export class InMemoryFeedbackStorage implements FeedbackStorage {
 
   async checkHealth(): Promise<void> {
     await this.list();
+  }
+
+  async summarizeByDisplayName(displayName: string): Promise<AuthorSummary> {
+    return summarizeFeedback(await this.list(), displayName);
   }
 }
 
@@ -206,6 +234,10 @@ export class AzureTableFeedbackStorage implements FeedbackStorage {
   async checkHealth(): Promise<void> {
     const iterator = this.table.listEntities();
     await iterator.byPage({ maxPageSize: 1 }).next();
+  }
+
+  async summarizeByDisplayName(displayName: string): Promise<AuthorSummary> {
+    return summarizeFeedback(await this.list(), displayName);
   }
 }
 
