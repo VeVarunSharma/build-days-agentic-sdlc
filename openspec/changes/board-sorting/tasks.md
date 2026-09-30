@@ -1,52 +1,124 @@
-## 1. Shared API and storage ordering
+# Implementation tasks
 
-- [ ] 1.1 Add the supported sort type/validation to the shared contract and
-  define the API query contract, including omitted, empty, unsupported, and
-  repeated values. Own `src/shared/contracts.ts` and
-  `src/server/app.ts`.
-- [ ] 1.2 Apply the deterministic `newest` and `most-votes` comparators to both
-  storage adapters. Own `src/server/storage.ts`.
-- [ ] 1.3 Add fixed-data coverage for defaults, both modes, tie-breakers,
-  malformed query shapes, and ordering after a successful vote. Own
-  `tests/api.test.ts` and `tests/storage.test.ts`.
-- [ ] 1.4 Validate the backend task with
-  `npm test -- tests/api.test.ts tests/storage.test.ts` and
-  `npm run typecheck`.
+## Parent work item
 
-## 2. Accessible board sort control
+Before implementation begins, the team creates or uses the instructor-seeded
+parent feature issue. It must link the approved specification pull request and
+`openspec/changes/board-sorting/`. Do not treat this specification PR as
+approved until a human has reviewed and merged it.
 
-- [ ] 2.1 Add a labeled, keyboard-operable sort control that starts in `newest`,
-  requests the selected mode, and does not persist selection across reloads.
-  Own `src/client/App.tsx` and `src/client/api.ts`.
-- [ ] 2.2 After successful creation or voting, refetch using the active sort
-  query and replace the list only on success. On refresh failure, preserve the
-  last successful list and report mutation success separately from stale board
-  state. Own `src/client/App.tsx` and `src/client/api.ts`.
-- [ ] 2.3 Ensure only the latest overlapping sort request can change displayed
-  results or active selection. On non-default sort `VALIDATION_ERROR`, announce
-  the issue and retry once with `newest`; do not loop if the default is rejected.
-  Own `src/client/App.tsx` and `src/client/api.ts`.
-- [ ] 2.4 Add UI tests for accessible selection and announcements, request
-  values, both ordering modes, create/vote refreshes and vote-driven order
-  announcements, out-of-order responses, refresh default, invalid-sort
-  fallback, and ordinary/mutation refresh failures. Own `tests/App.test.tsx`.
-- [ ] 2.5 Validate the UI task with `npm test -- tests/App.test.tsx` and
-  `npm run typecheck`.
+## Task 1: Implement API and storage sorting
 
-## 3. Integration verification
+**Outcome:** The feedback-list API accepts the documented sort query and both
+storage adapters return deterministic results for the supported modes.
 
-- [ ] 3.1 Confirm every scenario in `specs/feedback-sorting/spec.md` is covered
-  by focused API, storage, or UI validation; retain the existing loading,
-  empty, and retry behaviors.
-- [ ] 3.2 Run `openspec validate --all`, `npm run check`, and
-  `git --no-pager diff --check`; report actual results without claiming
-  unavailable checks passed.
-- [ ] 3.3 Update feature documentation only if needed to explain behavior not
-  already captured by the brief and this specification.
+**Owned paths:**
 
-## Dependencies
+- `src/shared/contracts.ts`
+- `src/server/app.ts`
+- `src/server/storage.ts`
+- `tests/api.test.ts`
+- `tests/storage.test.ts`
 
-- Task 1 establishes the API and storage behavior before Task 2 integrates the
-  client against it.
-- Tasks 1 and 2 have non-overlapping primary file ownership and focused tests.
-- Task 3 depends on both implementation tasks.
+**Prohibited paths:**
+
+- `src/client/**`
+- `infra/**`
+- `.github/workflows/**`
+- Unrelated OpenSpec changes or feature briefs
+
+**Dependencies:** Approved and merged `board-sorting` specification PR.
+
+**Focused validation:**
+
+- `npm test -- tests/api.test.ts tests/storage.test.ts`
+- `npm run typecheck`
+
+**Completion receipt:** Post to the parent issue the task owner/session, branch,
+commit, changed paths, focused commands and actual results, pull-request link,
+and any remaining blockers. The pull request must link the parent issue and
+approved specification PR.
+
+## Task 2: Implement the accessible board sorting experience
+
+**Outcome:** The React board lets a user switch modes, accurately handles
+selection and failures, and refreshes results in the active order after
+successful feedback creation or voting.
+
+**Owned paths:**
+
+- `src/client/App.tsx`
+- `src/client/api.ts`
+- `tests/App.test.tsx`
+
+**Prohibited paths:**
+
+- `src/shared/**`
+- `src/server/**`
+- `infra/**`
+- `.github/workflows/**`
+- Unrelated OpenSpec changes or feature briefs
+
+**Dependencies:** Task 1's shared/API contract and focused tests are reviewed
+and integrated before client integration begins.
+
+**Focused validation:**
+
+- `npm test -- tests/App.test.tsx`
+- `npm run typecheck`
+
+**Completion receipt:** Post to the parent issue the task owner/session, branch,
+commit, changed paths, focused commands and actual results, pull-request link,
+and any remaining blockers. The pull request must link the parent issue,
+approved specification PR, and Task 1 dependency.
+
+## Task 3: Verify integrated behavior and evidence
+
+**Outcome:** Every approved scenario has independent validation and the final
+implementation evidence is understandable without the agent transcript.
+
+**Owned paths:** No application source ownership. Any test correction must be
+assigned to Task 1 or Task 2 rather than creating overlapping ownership.
+
+**Prohibited paths:**
+
+- `src/**`
+- `infra/**`
+- `.github/workflows/**`
+- `openspec/changes/board-sorting/specs/**` unless a human approves a
+  specification correction
+
+**Dependencies:** Tasks 1 and 2 are complete and their pull requests are
+integrated.
+
+**Focused validation:**
+
+- `openspec validate --all`
+- `npm run check`
+- `git --no-pager diff --check`
+- Confirm every scenario in
+  `specs/feedback-sorting/spec.md` maps to focused test evidence.
+
+**Completion receipt:** Add the verified pull-request links, integrated commit,
+checks and actual results, deployment/demo evidence when available, and
+remaining limitations to the parent issue.
+
+## Dependency order and parallel ownership
+
+```text
+Approved and merged specification PR
+                  |
+                  v
+        Task 1: API and storage
+                  |
+                  v
+        Task 2: client experience
+                  |
+                  v
+        Task 3: integration evidence
+```
+
+Task 1 and Task 2 have separate primary paths, but Task 2 depends on Task 1's
+reviewed API contract. Keep them sequential unless the shared contract has
+already been stabilized in an integrated commit. Task 3 does not own application
+files.
