@@ -7,6 +7,10 @@ export const feedbackCategories = [
   "idea",
 ] as const;
 
+export const feedbackSortModes = ["newest-first", "most-votes-first"] as const;
+export const feedbackSortModeSchema = z.enum(feedbackSortModes);
+export const defaultFeedbackSortMode = feedbackSortModes[0];
+
 export const fieldLimits = {
   title: 100,
   description: 1_000,
@@ -39,6 +43,7 @@ export const voteRequestSchema = z.object({
 });
 
 export type FeedbackCategory = (typeof feedbackCategories)[number];
+export type FeedbackSortMode = (typeof feedbackSortModes)[number];
 export type CreateFeedbackRequest = z.infer<typeof createFeedbackSchema>;
 export type VoteRequest = z.infer<typeof voteRequestSchema>;
 
@@ -52,6 +57,25 @@ export interface VoteResult {
   feedback: Feedback;
   alreadyVoted: boolean;
 }
+
+export const compareFeedback = (
+  a: Feedback,
+  b: Feedback,
+  sortMode: FeedbackSortMode = defaultFeedbackSortMode,
+): number => {
+  if (sortMode === "most-votes-first") {
+    const voteOrder = b.votes - a.votes;
+    if (voteOrder !== 0) {
+      return voteOrder;
+    }
+  }
+
+  const creationOrder = b.createdAt.localeCompare(a.createdAt);
+  if (creationOrder !== 0) {
+    return creationOrder;
+  }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+};
 
 export interface ApiError {
   error: {

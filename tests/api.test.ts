@@ -1,10 +1,15 @@
 import request from "supertest";
+import { z } from "zod";
 import { createApp } from "../src/server/app.js";
 import type { Logger } from "../src/server/logger.js";
 import {
   InMemoryFeedbackStorage,
   type FeedbackStorage,
 } from "../src/server/storage.js";
+
+const feedbackListResponseSchema = z.object({
+  items: z.array(z.object({ id: z.string() })),
+});
 
 const silentLogger: Logger = { log: () => undefined };
 
@@ -69,6 +74,82 @@ describe("feedback API", () => {
     const list = await request(app).get("/api/feedback").expect(200);
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0].votes).toBe(1);
+  });
+
+  it("defaults to newest-first and supports each requested ordering", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    const add = (id: string, createdAt: string) =>
+      storage.create(
+        {
+          title: id,
+          description: id,
+          category: "idea",
+          displayName: "Participant",
+        },
+        { id, createdAt },
+      );
+
+    await add("tie-z", "2025-01-02T00:00:00.000Z");
+    await add("more-votes", "2025-01-01T00:00:00.000Z");
+    await add("tie-newer", "2025-01-03T00:00:00.000Z");
+    await add("tie-a", "2025-01-02T00:00:00.000Z");
+    await storage.vote("more-votes", "client-1");
+    await storage.vote("more-votes", "client-2");
+    await storage.vote("tie-z", "client-1");
+    await storage.vote("tie-newer", "client-1");
+    await storage.vote("tie-a", "client-1");
+    const app = createApp({ storage, logger: silentLogger });
+
+    const defaultList = await request(app).get("/api/feedback").expect(200);
+    expect(
+      feedbackListResponseSchema
+        .parse(defaultList.body)
+        .items.map(({ id }) => id),
+    ).toEqual([
+      "tie-newer",
+      "tie-a",
+      "tie-z",
+      "more-votes",
+    ]);
+
+    const newestFirst = await request(app)
+      .get("/api/feedback?sort=newest-first")
+      .expect(200);
+    expect(
+      feedbackListResponseSchema
+        .parse(newestFirst.body)
+        .items.map(({ id }) => id),
+    ).toEqual(["tie-newer", "tie-a", "tie-z", "more-votes"]);
+
+    const mostVotesFirst = await request(app)
+      .get("/api/feedback?sort=most-votes-first")
+      .expect(200);
+    expect(
+      feedbackListResponseSchema
+        .parse(mostVotesFirst.body)
+        .items.map(({ id }) => id),
+    ).toEqual(["more-votes", "tie-newer", "tie-a", "tie-z"]);
+  });
+
+  it.each([
+    "?sort",
+    "?sort=",
+    "?sort=newest-first&sort=most-votes-first",
+    "?sort=oldest-first",
+  ])("rejects invalid sort query %s", async (query) => {
+    const storage = new InMemoryFeedbackStorage();
+    const list = vi.spyOn(storage, "list");
+    const app = createApp({ storage, logger: silentLogger });
+
+    const response = await request(app)
+      .get(`/api/feedback${query}`)
+      .expect(400);
+
+    expect(response.body.error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      fieldErrors: { sort: [expect.any(String)] },
+    });
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("returns actionable validation without persisting", async () => {

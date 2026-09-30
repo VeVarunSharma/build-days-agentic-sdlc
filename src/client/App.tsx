@@ -1,9 +1,19 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
 import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  compareFeedback,
+  defaultFeedbackSortMode,
   feedbackCategories,
+  feedbackSortModes,
   fieldLimits,
   type CreateFeedbackRequest,
   type Feedback,
+  type FeedbackSortMode,
 } from "../shared/contracts.js";
 import {
   ApiRequestError,
@@ -30,32 +40,63 @@ const getClientId = (): string => {
 
 export function App() {
   const [items, setItems] = useState<Feedback[]>([]);
+  const [sortMode, setSortMode] = useState<FeedbackSortMode>(
+    defaultFeedbackSortMode,
+  );
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [sorting, setSorting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [votingId, setVotingId] = useState<string>();
   const [error, setError] = useState<string>();
   const [loadFailed, setLoadFailed] = useState(false);
   const [notice, setNotice] = useState<string>();
   const formStatusId = useId();
+  const sortModeRef = useRef<FeedbackSortMode>(defaultFeedbackSortMode);
+  const successfulSortModeRef =
+    useRef<FeedbackSortMode>(defaultFeedbackSortMode);
+  const listRequestIdRef = useRef(0);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    void load();
+    void load(defaultFeedbackSortMode);
   }, []);
 
-  async function load() {
-    setLoading(true);
+  async function load(mode: FeedbackSortMode = sortModeRef.current) {
+    const requestId = ++listRequestIdRef.current;
+    const initialLoad = !hasLoadedRef.current;
+    setLoading(initialLoad);
+    setSorting(!initialLoad);
     setLoadFailed(false);
     setError(undefined);
     try {
-      setItems(await listFeedback());
+      const feedback = await listFeedback(mode);
+      if (requestId !== listRequestIdRef.current) return;
+      setItems(feedback);
+      setSortMode(mode);
+      sortModeRef.current = mode;
+      successfulSortModeRef.current = mode;
+      hasLoadedRef.current = true;
     } catch (loadError) {
-      setLoadFailed(true);
+      if (requestId !== listRequestIdRef.current) return;
+      setLoadFailed(!hasLoadedRef.current);
+      setSortMode(successfulSortModeRef.current);
+      sortModeRef.current = successfulSortModeRef.current;
       setError(messageFor(loadError));
     } finally {
-      setLoading(false);
+      if (requestId === listRequestIdRef.current) {
+        setLoading(false);
+        setSorting(false);
+      }
     }
+  }
+
+  function changeSortMode(mode: FeedbackSortMode) {
+    if (mode === sortModeRef.current) return;
+    sortModeRef.current = mode;
+    setSortMode(mode);
+    void load(mode);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -66,7 +107,11 @@ export function App() {
     setFieldErrors({});
     try {
       const feedback = await createFeedback(form);
-      setItems((current) => [feedback, ...current]);
+      setItems((current) =>
+        [feedback, ...current].sort((a, b) =>
+          compareFeedback(a, b, sortModeRef.current),
+        ),
+      );
       setForm(emptyForm);
       setNotice("Feedback added to the board.");
     } catch (submitError) {
@@ -88,7 +133,7 @@ export function App() {
       setItems((current) =>
         current.map((candidate) =>
           candidate.id === item.id ? result.feedback : candidate,
-        ),
+        ).sort((a, b) => compareFeedback(a, b, sortModeRef.current)),
       );
       setNotice(
         result.alreadyVoted
@@ -166,7 +211,7 @@ export function App() {
           </form>
           <div id={formStatusId} className="status" aria-live="polite">
             {error && (
-              <div className="error">
+              <div className="error" role="alert">
                 <span>{error}</span>
                 {loadFailed && (
                   <button type="button" onClick={() => void load()}>
@@ -179,12 +224,31 @@ export function App() {
           </div>
         </section>
 
-        <section className="board" aria-labelledby="board-title" aria-busy={loading}>
+        <section
+          className="board"
+          aria-labelledby="board-title"
+          aria-busy={loading || sorting}
+        >
           <div className="board-heading">
             <div>
               <p className="eyebrow">Team ideas</p>
               <h2 id="board-title">Feedback</h2>
             </div>
+            <label>
+              Sort feedback
+              <select
+                value={sortMode}
+                onChange={(event) => {
+                  const mode = feedbackSortModes.find(
+                    (candidate) => candidate === event.target.value,
+                  );
+                  if (mode) changeSortMode(mode);
+                }}
+              >
+                <option value="newest-first">Newest first</option>
+                <option value="most-votes-first">Most votes first</option>
+              </select>
+            </label>
             <span className="count" aria-label={`${items.length} feedback items`}>
               {items.length}
             </span>
@@ -198,43 +262,52 @@ export function App() {
               <h3>Feedback is unavailable</h3>
               <p>Use Try again to reload the board.</p>
             </div>
-          ) : items.length === 0 ? (
-            <div className="state">
-              <h3>No feedback yet</h3>
-              <p>Start the board with the first workshop idea.</p>
-            </div>
           ) : (
-            <ul className="feedback-list">
-              {items.map((item) => (
-                <li className="feedback-card" key={item.id}>
-                  <div className="card-topline">
-                    <span className={`category category-${item.category}`}>
-                      {item.category}
-                    </span>
-                    <time dateTime={item.createdAt}>
-                      {new Intl.DateTimeFormat(undefined, {
-                        dateStyle: "medium",
-                      }).format(new Date(item.createdAt))}
-                    </time>
-                  </div>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                  <div className="card-footer">
-                    <span>By {item.displayName}</span>
-                    <button
-                      className="vote"
-                      type="button"
-                      disabled={votingId === item.id}
-                      aria-label={`Vote for ${item.title}. ${item.votes} votes`}
-                      onClick={() => void vote(item)}
-                    >
-                      <span aria-hidden="true">▲</span>
-                      {votingId === item.id ? "Voting…" : item.votes}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              {sorting && (
+                <p className="state" role="status">
+                  Updating feedback order…
+                </p>
+              )}
+              {items.length === 0 ? (
+                <div className="state">
+                  <h3>No feedback yet</h3>
+                  <p>Start the board with the first workshop idea.</p>
+                </div>
+              ) : (
+                <ul className="feedback-list">
+                  {items.map((item) => (
+                    <li className="feedback-card" key={item.id}>
+                      <div className="card-topline">
+                        <span className={`category category-${item.category}`}>
+                          {item.category}
+                        </span>
+                        <time dateTime={item.createdAt}>
+                          {new Intl.DateTimeFormat(undefined, {
+                            dateStyle: "medium",
+                          }).format(new Date(item.createdAt))}
+                        </time>
+                      </div>
+                      <h3>{item.title}</h3>
+                      <p>{item.description}</p>
+                      <div className="card-footer">
+                        <span>By {item.displayName}</span>
+                        <button
+                          className="vote"
+                          type="button"
+                          disabled={votingId === item.id}
+                          aria-label={`Vote for ${item.title}. ${item.votes} votes`}
+                          onClick={() => void vote(item)}
+                        >
+                          <span aria-hidden="true">▲</span>
+                          {votingId === item.id ? "Voting…" : item.votes}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </section>
       </main>
