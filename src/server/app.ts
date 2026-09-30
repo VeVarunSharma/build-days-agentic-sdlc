@@ -89,6 +89,13 @@ export const createApp = ({
     response.json({ items: await storage.list() });
   });
 
+  app.get("/api/authors/:displayName/summary", async (request, response) => {
+    const summary = await storage.summarizeByDisplayName(
+      request.params.displayName,
+    );
+    response.json({ summary });
+  });
+
   app.post(
     "/api/feedback",
     validateBody(createFeedbackSchema),
