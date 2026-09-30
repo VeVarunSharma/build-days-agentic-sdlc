@@ -6,7 +6,9 @@ import express, {
 import { rateLimit } from "express-rate-limit";
 import { ZodError, type ZodType } from "zod";
 import {
+  authorSummaryQuerySchema,
   createFeedbackSchema,
+  summarizeAuthor,
   voteRequestSchema,
   type ApiError,
   type CreateFeedbackRequest,
@@ -87,6 +89,28 @@ export const createApp = ({
 
   app.get("/api/feedback", async (_request, response) => {
     response.json({ items: await storage.list() });
+  });
+
+  app.get("/api/author-summary", async (request, response) => {
+    const parsed = authorSummaryQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string[]> = {};
+      for (const issue of parsed.error.issues) {
+        const field = String(issue.path[0] ?? "request");
+        (fieldErrors[field] ??= []).push(issue.message);
+      }
+      response.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Check the highlighted fields and try again.",
+          fieldErrors,
+        },
+      } satisfies ApiError);
+      return;
+    }
+    response.json(
+      summarizeAuthor(await storage.list(), parsed.data.displayName),
+    );
   });
 
   app.post(
