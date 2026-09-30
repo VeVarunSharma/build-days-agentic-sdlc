@@ -8,9 +8,11 @@ import {
 import {
   ApiRequestError,
   createFeedback,
+  getAuthorSummary,
   listFeedback,
   voteForFeedback,
 } from "./api.js";
+import { AuthorSummaryPanel, type AuthorSummaryState } from "./AuthorSummaryPanel.js";
 
 const emptyForm: CreateFeedbackRequest = {
   title: "",
@@ -38,6 +40,9 @@ export function App() {
   const [error, setError] = useState<string>();
   const [loadFailed, setLoadFailed] = useState(false);
   const [notice, setNotice] = useState<string>();
+  const [summaryState, setSummaryState] = useState<AuthorSummaryState>({
+    status: "idle",
+  });
   const formStatusId = useId();
 
   useEffect(() => {
@@ -99,6 +104,27 @@ export function App() {
       setError(messageFor(voteError));
     } finally {
       setVotingId(undefined);
+    }
+  }
+
+  async function lookupAuthorSummary(displayName: string) {
+    const trimmed = displayName.trim();
+    setSummaryState({ status: "loading", displayName: trimmed });
+    try {
+      const summary = await getAuthorSummary(trimmed);
+      setSummaryState({ status: "success", summary });
+    } catch (summaryError) {
+      setSummaryState({
+        status: "error",
+        displayName: trimmed,
+        message: messageFor(summaryError),
+      });
+    }
+  }
+
+  function retryAuthorSummary() {
+    if (summaryState.status === "error") {
+      void lookupAuthorSummary(summaryState.displayName);
     }
   }
 
@@ -179,6 +205,12 @@ export function App() {
           </div>
         </section>
 
+        <AuthorSummaryPanel
+          state={summaryState}
+          onLookup={(displayName) => void lookupAuthorSummary(displayName)}
+          onRetry={retryAuthorSummary}
+        />
+
         <section className="board" aria-labelledby="board-title" aria-busy={loading}>
           <div className="board-heading">
             <div>
@@ -220,7 +252,13 @@ export function App() {
                   <h3>{item.title}</h3>
                   <p>{item.description}</p>
                   <div className="card-footer">
-                    <span>By {item.displayName}</span>
+                    <button
+                      type="button"
+                      className="author-link"
+                      onClick={() => void lookupAuthorSummary(item.displayName)}
+                    >
+                      By {item.displayName}
+                    </button>
                     <button
                       className="vote"
                       type="button"
