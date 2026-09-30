@@ -24,11 +24,19 @@ export function AuthorSummaryPanel({
   onRetry,
 }: AuthorSummaryPanelProps) {
   const [lookupValue, setLookupValue] = useState("");
+  const [validationMessage, setValidationMessage] = useState<string | null>(
+    null,
+  );
   const inputId = useId();
   const statusId = useId();
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!lookupValue.trim()) {
+      setValidationMessage("Enter a display name to look up.");
+      return;
+    }
+    setValidationMessage(null);
     onLookup(lookupValue);
   }
 
@@ -46,11 +54,20 @@ export function AuthorSummaryPanel({
           value={lookupValue}
           maxLength={fieldLimits.displayName}
           aria-describedby={statusId}
-          onChange={(event) => setLookupValue(event.target.value)}
+          aria-invalid={Boolean(validationMessage)}
+          onChange={(event) => {
+            setLookupValue(event.target.value);
+            setValidationMessage(null);
+          }}
         />
         <button type="submit">Look up</button>
       </form>
       <div id={statusId} className="summary-status" aria-live="polite">
+        {validationMessage && (
+          <p role="alert" className="field-error">
+            {validationMessage}
+          </p>
+        )}
         {state.status === "loading" && (
           <p role="status">Loading summary for {state.displayName}…</p>
         )}

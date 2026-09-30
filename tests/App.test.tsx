@@ -107,6 +107,51 @@ describe("feedback board", () => {
     expect(within(summaryRegion).getByText("5")).toBeVisible();
   });
 
+  it("does not look up an empty or whitespace-only display name", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/feedback") {
+        return jsonResponse({ items: [] });
+      }
+      if (url === "/api/authors/Sam/summary") {
+        return jsonResponse({
+          summary: { displayName: "Sam", itemCount: 1, totalVotes: 3 },
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "No feedback yet" });
+
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+    expect(
+      await screen.findByText("Enter a display name to look up."),
+    ).toBeVisible();
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      "/api/authors//summary",
+    );
+
+    await user.type(screen.getByLabelText("Look up a display name"), "   ");
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+    expect(
+      await screen.findByText("Enter a display name to look up."),
+    ).toBeVisible();
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      "/api/authors//summary",
+    );
+
+    await user.clear(screen.getByLabelText("Look up a display name"));
+    await user.type(screen.getByLabelText("Look up a display name"), "Sam");
+    await user.click(screen.getByRole("button", { name: "Look up" }));
+
+    const summaryRegion = screen.getByRole("region", { name: "Author summary" });
+    expect(await within(summaryRegion).findByText("Sam")).toBeVisible();
+    expect(
+      screen.queryByText("Enter a display name to look up."),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens the author summary from a feedback card's display name", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
