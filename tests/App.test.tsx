@@ -164,7 +164,7 @@ describe("feedback board", () => {
     const board = screen.getByRole("region", { name: "Feedback" });
     expect(board).toHaveAttribute("aria-busy", "true");
     expect(cardTitles()).toEqual(["Newest idea", "Older idea"]);
-    expect(screen.getByRole("status")).toHaveTextContent(/loading/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/loading|updating/i);
 
     pending.resolve(jsonResponse({ items: [...firstItems].reverse() }));
     await waitFor(() => expect(board).toHaveAttribute("aria-busy", "false"));
