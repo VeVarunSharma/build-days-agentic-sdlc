@@ -2,6 +2,7 @@ import {
   createFeedbackSchema,
   fieldLimits,
   voteRequestSchema,
+  type AuthorSummary,
 } from "../src/shared/contracts.js";
 
 describe("feedback contracts", () => {
@@ -48,5 +49,22 @@ describe("feedback contracts", () => {
     expect(voteRequestSchema.safeParse({ clientId: "not/valid" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("author summary contract", () => {
+  it("exposes only displayName, itemCount, and totalVotes", () => {
+    const summary: AuthorSummary = {
+      displayName: "Grace",
+      itemCount: 2,
+      totalVotes: 3,
+    };
+    expect(Object.keys(summary).sort()).toEqual([
+      "displayName",
+      "itemCount",
+      "totalVotes",
+    ]);
+    expect(Number.isInteger(summary.itemCount)).toBe(true);
+    expect(Number.isInteger(summary.totalVotes)).toBe(true);
   });
 });

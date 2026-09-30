@@ -60,6 +60,56 @@ describe("in-memory feedback storage", () => {
     await seedStorage(storage);
     expect(await storage.list()).toHaveLength(2);
   });
+
+  it("summarizes aggregate counts for a known display name", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    const first = await storage.create({ ...input, displayName: "Grace" });
+    await storage.create({ ...input, displayName: "Grace", title: "Second" });
+    await storage.create({ ...input, displayName: "Ada" });
+    await storage.vote(first.id, "client-1");
+    await storage.vote(first.id, "client-2");
+
+    await expect(storage.summarizeByDisplayName("Grace")).resolves.toEqual({
+      displayName: "Grace",
+      itemCount: 2,
+      totalVotes: 2,
+    });
+  });
+
+  it("returns a zero-valued summary for an unknown display name", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    await storage.create(input);
+
+    await expect(
+      storage.summarizeByDisplayName("Nobody By This Name"),
+    ).resolves.toEqual({
+      displayName: "Nobody By This Name",
+      itemCount: 0,
+      totalVotes: 0,
+    });
+  });
+
+  it("returns a zero-valued summary for empty, whitespace, or over-limit input", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    await storage.create(input);
+
+    await expect(storage.summarizeByDisplayName("")).resolves.toEqual({
+      displayName: "",
+      itemCount: 0,
+      totalVotes: 0,
+    });
+    await expect(storage.summarizeByDisplayName("   ")).resolves.toEqual({
+      displayName: "",
+      itemCount: 0,
+      totalVotes: 0,
+    });
+    const overLimit = "x".repeat(500);
+    await expect(storage.summarizeByDisplayName(overLimit)).resolves.toEqual({
+      displayName: overLimit,
+      itemCount: 0,
+      totalVotes: 0,
+    });
+  });
 });
 
 describe("Azure Table feedback storage", () => {
@@ -117,6 +167,57 @@ describe("Azure Table feedback storage", () => {
     await expect(storage.vote("feedback-1", "client-1")).resolves.toMatchObject({
       alreadyVoted: true,
       feedback: { votes: 2 },
+    });
+  });
+
+  it("summarizes aggregate counts over the existing list() read path", async () => {
+    const entities = [
+      {
+        partitionKey: "feedback-1",
+        rowKey: "feedback",
+        title: "First",
+        description: input.description,
+        category: input.category,
+        displayName: "Grace",
+        votes: 2,
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        partitionKey: "feedback-2",
+        rowKey: "feedback",
+        title: "Second",
+        description: input.description,
+        category: input.category,
+        displayName: "  Grace  ",
+        votes: 1,
+        createdAt: "2025-01-02T00:00:00.000Z",
+      },
+    ];
+    const table = {
+      listEntities: vi.fn(() => {
+        async function* iterate() {
+          for (const entity of entities) {
+            yield entity;
+          }
+        }
+        return iterate();
+      }),
+    };
+    const storage = new AzureTableFeedbackStorage(
+      table as unknown as TableClient,
+    );
+
+    await expect(storage.summarizeByDisplayName("Grace")).resolves.toEqual({
+      displayName: "Grace",
+      itemCount: 2,
+      totalVotes: 3,
+    });
+    await expect(
+      storage.summarizeByDisplayName("Unknown Author"),
+    ).resolves.toEqual({
+      displayName: "Unknown Author",
+      itemCount: 0,
+      totalVotes: 0,
     });
   });
 });

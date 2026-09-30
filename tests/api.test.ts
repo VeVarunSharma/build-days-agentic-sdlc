@@ -128,11 +128,90 @@ describe("feedback API", () => {
       list: () => Promise.reject(new Error("connection string was secret")),
       create: () => Promise.reject(new Error("unused")),
       vote: () => Promise.reject(new Error("unused")),
+      summarizeByDisplayName: () => Promise.reject(new Error("unused")),
       checkHealth: () => Promise.resolve(),
     };
     const app = createApp({ storage, logger: silentLogger });
     const response = await request(app).get("/api/feedback").expect(500);
     expect(response.text).not.toContain("connection string");
     expect(response.body.error.code).toBe("INTERNAL_ERROR");
+  });
+
+  it("summarizes aggregate counts for a matching display name", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    const app = createApp({ storage, logger: silentLogger });
+    const created = await request(app)
+      .post("/api/feedback")
+      .send({
+        title: "Add a break",
+        description: "A short break would help.",
+        category: "facilitation",
+        displayName: "Lin",
+      })
+      .expect(201);
+    await request(app)
+      .post(`/api/feedback/${created.body.feedback.id}/votes`)
+      .send({ clientId: "workshop-client" })
+      .expect(201);
+
+    const response = await request(app)
+      .get("/api/authors/Lin/summary")
+      .expect(200);
+    expect(response.body).toEqual({
+      summary: { displayName: "Lin", itemCount: 1, totalVotes: 1 },
+    });
+  });
+
+  it("returns a zero-valued 200 summary for unknown, empty, or over-length names", async () => {
+    const app = createApp({
+      storage: new InMemoryFeedbackStorage(),
+      logger: silentLogger,
+    });
+
+    const unknown = await request(app)
+      .get("/api/authors/Nobody%20Here/summary")
+      .expect(200);
+    expect(unknown.body).toEqual({
+      summary: { displayName: "Nobody Here", itemCount: 0, totalVotes: 0 },
+    });
+
+    const empty = await request(app)
+      .get("/api/authors/%20%20/summary")
+      .expect(200);
+    expect(empty.body).toEqual({
+      summary: { displayName: "", itemCount: 0, totalVotes: 0 },
+    });
+
+    const overLength = "x".repeat(500);
+    const overLengthResponse = await request(app)
+      .get(`/api/authors/${overLength}/summary`)
+      .expect(200);
+    expect(overLengthResponse.body).toEqual({
+      summary: { displayName: overLength, itemCount: 0, totalVotes: 0 },
+    });
+  });
+
+  it("never includes feedback IDs, vote identifiers, or storage keys in the summary", async () => {
+    const storage = new InMemoryFeedbackStorage();
+    const app = createApp({ storage, logger: silentLogger });
+    await request(app)
+      .post("/api/feedback")
+      .send({
+        title: "Add a break",
+        description: "A short break would help.",
+        category: "facilitation",
+        displayName: "Lin",
+      })
+      .expect(201);
+
+    const response = await request(app)
+      .get("/api/authors/Lin/summary")
+      .expect(200);
+    expect(Object.keys(response.body)).toEqual(["summary"]);
+    expect(Object.keys(response.body.summary).sort()).toEqual([
+      "displayName",
+      "itemCount",
+      "totalVotes",
+    ]);
   });
 });
