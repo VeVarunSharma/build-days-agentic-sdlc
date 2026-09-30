@@ -12,17 +12,25 @@ Add two sort modes:
 - newest first;
 - most votes first.
 
-Define deterministic tie-breakers in the OpenSpec design. The selected mode is
-visible in the React board and may be sent to the API as a validated query.
+The board defaults to **Newest first** and exposes an accessible selector for
+both modes. The selection remains active during reloads for the current page
+visit. The API accepts `newest-first` and `most-votes-first`; an omitted value
+defaults to `newest-first`, while empty, repeated, or unsupported values return
+HTTP 400 with a `VALIDATION_ERROR` response and a `fieldErrors.sort` entry.
 
 ## Required scenarios
 
-1. The default mode returns newest feedback first.
-2. Most-voted mode orders by descending vote count.
-3. Equal vote counts use the documented deterministic tie-breaker.
-4. An unsupported sort value is rejected or normalized according to the
-   approved specification.
-5. Voting and refreshing preserve correct order.
+1. Newest-first orders by descending creation time, then ascending feedback ID.
+2. Most-voted orders by descending vote count, descending creation time, then
+   ascending feedback ID.
+3. The selected mode and available options are accessible, and newest-first is
+   selected by default.
+4. Creating or voting updates the displayed order without resetting the
+   selected mode.
+5. During a sort request, the current items remain visible and the board
+   exposes a busy state. Only the latest request may update the board.
+6. A failed sort request retains the prior items, reverts the selector to the
+   most recently successful mode, and announces an accessible error.
 
 ## Suggested task seams
 
@@ -37,9 +45,11 @@ Finalize actual path ownership only after inspecting the repository.
 ## Completion evidence
 
 - fixed test data proving both modes and tie-breakers;
-- UI test proving the selected mode is visible;
+- UI tests proving selected state, request lifecycle, stale-response handling,
+  failure recovery, and mutation ordering;
 - pull request linked to the approved scenarios;
-- deployed demonstration with at least three feedback items.
+- deployed demonstration with at least three feedback items and a vote that
+  changes most-voted order (pending integration and deployment).
 
 ## Out of scope
 
