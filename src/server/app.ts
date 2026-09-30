@@ -67,10 +67,12 @@ export const createApp = ({
   );
 
   app.get("/health", (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
     response.json({ status: "healthy" });
   });
 
   app.get("/ready", async (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
     try {
       await storage.checkHealth();
       response.json({ status: "ready" });
