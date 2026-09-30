@@ -1,14 +1,14 @@
 ## 1. Shared contract (owner: `src/shared/contracts.ts`, `tests/contracts.test.ts`)
 
-- [ ] 1.1 Add `authorSummaryQuerySchema`, `AuthorSummary` type, and `summarizeAuthor` helper
-- [ ] 1.2 Add deterministic tests for aggregation, zero result, case sensitivity, and validation limits
-- [ ] 1.3 Run `npx vitest run tests/contracts.test.ts`
+- [x] 1.1 Add `authorSummaryQuerySchema`, `AuthorSummary` type, and `summarizeAuthor` helper
+- [x] 1.2 Add deterministic tests for aggregation, zero result, case sensitivity, and validation limits
+- [x] 1.3 Run `npx vitest run tests/contracts.test.ts`
 
 ## 2. API endpoint (owner: `src/server/app.ts`, `tests/api.test.ts`; depends on 1)
 
-- [ ] 2.1 Add `GET /api/author-summary` using the contract and `storage.list()`; map validation errors to `VALIDATION_ERROR`
-- [ ] 2.2 Add API tests for all spec scenarios including update after create/vote and no internals in the body
-- [ ] 2.3 Run `npx vitest run tests/api.test.ts`
+- [x] 2.1 Add `GET /api/author-summary` using the contract and `storage.list()`; map validation errors to `VALIDATION_ERROR`
+- [x] 2.2 Add API tests for all spec scenarios including update after create/vote and no internals in the body
+- [x] 2.3 Run `npx vitest run tests/api.test.ts`
 
 ## 3. React panel (owner: `src/client/*`, `tests/App.test.tsx`; depends on 1, parallel with 2)
 
