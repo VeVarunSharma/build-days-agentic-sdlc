@@ -1,56 +1,58 @@
 import { z } from "zod";
 
-export const feedbackCategories = [
-  "content",
-  "facilitation",
-  "tooling",
-  "idea",
+export const productCategories = [
+  "home",
+  "outdoors",
+  "office",
+  "kitchen",
 ] as const;
 
 export const fieldLimits = {
-  title: 100,
-  description: 1_000,
-  displayName: 60,
-  clientId: 100,
+  search: 80,
+  quantity: 20,
 } as const;
 
-export const createFeedbackSchema = z.object({
-  title: z.string().trim().min(1, "Enter a title.").max(fieldLimits.title),
-  description: z
-    .string()
-    .trim()
-    .min(1, "Enter a description.")
-    .max(fieldLimits.description),
-  category: z.enum(feedbackCategories),
-  displayName: z
-    .string()
-    .trim()
-    .min(1, "Enter your display name.")
-    .max(fieldLimits.displayName),
+export const productQuerySchema = z.object({
+  q: z.string().trim().max(fieldLimits.search).optional().default(""),
+  category: z.enum(productCategories).optional(),
 });
 
-export const voteRequestSchema = z.object({
-  clientId: z
-    .string()
-    .trim()
-    .min(1, "A workshop client ID is required.")
-    .max(fieldLimits.clientId)
-    .regex(/^[A-Za-z0-9_-]+$/, "The workshop client ID is invalid."),
+export const cartQuantitySchema = z.object({
+  quantity: z
+    .number()
+    .int("Quantity must be a whole number.")
+    .min(1, "Quantity must be at least 1.")
+    .max(fieldLimits.quantity, `Quantity cannot exceed ${fieldLimits.quantity}.`),
 });
 
-export type FeedbackCategory = (typeof feedbackCategories)[number];
-export type CreateFeedbackRequest = z.infer<typeof createFeedbackSchema>;
-export type VoteRequest = z.infer<typeof voteRequestSchema>;
+export type ProductCategory = (typeof productCategories)[number];
+export type ProductQuery = z.infer<typeof productQuerySchema>;
 
-export interface Feedback extends CreateFeedbackRequest {
+export interface Product {
   id: string;
-  votes: number;
-  createdAt: string;
+  name: string;
+  shortDescription: string;
+  description: string;
+  category: ProductCategory;
+  priceCents: number;
+  rating: number;
+  reviewCount: number;
+  availability: "in-stock" | "limited";
+  badge?: string;
+  features: string[];
+  accent: string;
 }
 
-export interface VoteResult {
-  feedback: Feedback;
-  alreadyVoted: boolean;
+export interface ProductListResponse {
+  items: Product[];
+  total: number;
+  query: ProductQuery;
+  categories: ProductCategory[];
+}
+
+export interface CartLine {
+  product: Product;
+  quantity: number;
 }
 
 export interface ApiError {

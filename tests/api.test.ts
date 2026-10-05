@@ -1,119 +1,98 @@
 import request from "supertest";
 import { createApp } from "../src/server/app.js";
-import type { Logger } from "../src/server/logger.js";
 import {
-  InMemoryFeedbackStorage,
-  type FeedbackStorage,
-} from "../src/server/storage.js";
+  InMemoryProductCatalogue,
+  type ProductCatalogue,
+} from "../src/server/catalogue.js";
+import type { Logger } from "../src/server/logger.js";
 
 const silentLogger: Logger = { log: () => undefined };
 
-describe("feedback API", () => {
-  it("exposes liveness and storage-backed readiness", async () => {
-    const storage = new InMemoryFeedbackStorage();
-    const app = createApp({ storage, logger: silentLogger });
+describe("product API", () => {
+  it("exposes liveness and catalogue-backed readiness", async () => {
+    const catalogue = new InMemoryProductCatalogue();
+    const app = createApp({ catalogue, logger: silentLogger });
 
     await request(app).get("/health").expect(200, { status: "healthy" });
     await request(app).get("/ready").expect(200, { status: "ready" });
   });
 
-  it("returns 503 when storage is unavailable", async () => {
-    const storage = new InMemoryFeedbackStorage();
-    storage.checkHealth = () => Promise.reject(new Error("secret details"));
-    const app = createApp({ storage, logger: silentLogger });
+  it("returns 503 when the catalogue is unavailable", async () => {
+    const catalogue = new InMemoryProductCatalogue();
+    catalogue.checkHealth = () => Promise.reject(new Error("secret details"));
+    const app = createApp({ catalogue, logger: silentLogger });
 
     const response = await request(app).get("/ready").expect(503);
     expect(response.text).not.toContain("secret details");
-    expect(response.body.error.code).toBe("STORAGE_UNAVAILABLE");
+    expect(response.body.error.code).toBe("CATALOGUE_UNAVAILABLE");
   });
 
-  it("creates, lists, and votes on feedback", async () => {
+  it("lists, searches, and filters deterministic products", async () => {
     const app = createApp({
-      storage: new InMemoryFeedbackStorage(),
+      catalogue: new InMemoryProductCatalogue(),
       logger: silentLogger,
     });
-    const created = await request(app)
-      .post("/api/feedback")
-      .send({
-        title: "  Add a break  ",
-        description: "A short break would help.",
-        category: "facilitation",
-        displayName: "Lin",
-      })
-      .expect(201);
 
-    expect(created.body.feedback).toMatchObject({
-      title: "Add a break",
-      votes: 0,
-    });
-    const id = created.body.feedback.id as string;
+    const list = await request(app).get("/api/products").expect(200);
+    expect(list.body.total).toBe(8);
+    expect(list.body.categories).toEqual(["home", "outdoors", "office", "kitchen"]);
 
-    const firstVote = await request(app)
-      .post(`/api/feedback/${id}/votes`)
-      .send({ clientId: "workshop-client" })
-      .expect(201);
-    expect(firstVote.body).toMatchObject({
-      alreadyVoted: false,
-      feedback: { votes: 1 },
-    });
-
-    const duplicateVote = await request(app)
-      .post(`/api/feedback/${id}/votes`)
-      .send({ clientId: "workshop-client" })
+    const filtered = await request(app)
+      .get("/api/products?q=lamp&category=office")
       .expect(200);
-    expect(duplicateVote.body).toMatchObject({
-      alreadyVoted: true,
-      feedback: { votes: 1 },
+    expect(filtered.body).toMatchObject({
+      total: 1,
+      query: { q: "lamp", category: "office" },
+      items: [{ id: "aurora-desk-lamp" }],
     });
-
-    const list = await request(app).get("/api/feedback").expect(200);
-    expect(list.body.items).toHaveLength(1);
-    expect(list.body.items[0].votes).toBe(1);
   });
 
-  it("returns actionable validation without persisting", async () => {
-    const storage = new InMemoryFeedbackStorage();
-    const app = createApp({ storage, logger: silentLogger });
+  it("returns product details and safe not-found responses", async () => {
+    const app = createApp({
+      catalogue: new InMemoryProductCatalogue(),
+      logger: silentLogger,
+    });
+
+    const detail = await request(app)
+      .get("/api/products/trailmark-bottle")
+      .expect(200);
+    expect(detail.body.product).toMatchObject({
+      name: "Trailmark Bottle",
+      priceCents: 3199,
+    });
+    await request(app).get("/api/products/missing").expect(404, {
+      error: { code: "NOT_FOUND", message: "Product was not found." },
+    });
+  });
+
+  it("returns actionable validation for invalid filters", async () => {
+    const app = createApp({
+      catalogue: new InMemoryProductCatalogue(),
+      logger: silentLogger,
+    });
     const response = await request(app)
-      .post("/api/feedback")
-      .send({ title: "", description: "", category: "idea", displayName: "" })
+      .get("/api/products?category=electronics")
       .expect(400);
 
     expect(response.body.error).toMatchObject({
       code: "VALIDATION_ERROR",
       fieldErrors: {
-        title: ["Enter a title."],
-        description: ["Enter a description."],
-        displayName: ["Enter your display name."],
+        category: expect.any(Array),
       },
     });
-    expect(await storage.list()).toEqual([]);
-  });
-
-  it("returns a not-found response for votes on missing feedback", async () => {
-    const app = createApp({
-      storage: new InMemoryFeedbackStorage(),
-      logger: silentLogger,
-    });
-    await request(app)
-      .post("/api/feedback/missing/votes")
-      .send({ clientId: "client-1" })
-      .expect(404, {
-        error: { code: "NOT_FOUND", message: "Feedback was not found." },
-      });
   });
 
   it("rate-limits repeated application requests without blocking liveness", async () => {
     const app = createApp({
-      storage: new InMemoryFeedbackStorage(),
+      catalogue: new InMemoryProductCatalogue(),
       logger: silentLogger,
     });
 
     for (let attempt = 0; attempt < 120; attempt += 1) {
-      await request(app).get("/api/feedback").expect(200);
+      await request(app).get("/api/products").expect(200);
     }
 
-    await request(app).get("/api/feedback").expect(429, {
+    await request(app).get("/api/products").expect(429, {
       error: {
         code: "RATE_LIMITED",
         message: "Too many requests. Try again shortly.",
@@ -122,16 +101,14 @@ describe("feedback API", () => {
     await request(app).get("/health").expect(200, { status: "healthy" });
   });
 
-  it("converts unexpected storage failures to safe errors", async () => {
-    const storage: FeedbackStorage = {
-      initialize: () => Promise.resolve(),
+  it("converts unexpected catalogue failures to safe errors", async () => {
+    const catalogue: ProductCatalogue = {
       list: () => Promise.reject(new Error("connection string was secret")),
-      create: () => Promise.reject(new Error("unused")),
-      vote: () => Promise.reject(new Error("unused")),
+      getById: () => Promise.reject(new Error("unused")),
       checkHealth: () => Promise.resolve(),
     };
-    const app = createApp({ storage, logger: silentLogger });
-    const response = await request(app).get("/api/feedback").expect(500);
+    const app = createApp({ catalogue, logger: silentLogger });
+    const response = await request(app).get("/api/products").expect(500);
     expect(response.text).not.toContain("connection string");
     expect(response.body.error.code).toBe("INTERNAL_ERROR");
   });

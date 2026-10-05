@@ -2,200 +2,134 @@
 
 ## Purpose
 
-This repository is both a deployable sample application and a teaching harness for an end-to-end Agentic SDLC workshop. It must optimize for participant success within a four-hour session while demonstrating production-oriented engineering controls.
+This repository is a deployable Babazon.com starter and a teaching harness for
+an issue-first Agentic SDLC workshop. It optimizes for participant success in a
+four-hour session while demonstrating production-oriented engineering controls.
+
+Babazon.com is fictional and uses an original, simple visual identity. It must
+not copy Amazon branding, assets, page designs, text, or trade dress.
 
 ## Design principles
 
-### 1. The repository is the system of record
+### The repository and GitHub are the system of record
 
-Architecture, requirements, operational instructions, validation commands, and decision history must be versioned in the repository. Chat history is not an authoritative artifact.
+Durable architecture, operational instructions, validation commands, issues,
+pull requests, and CI evidence are versioned or linked from the repository.
+Agent conversation history is not authoritative.
 
-### 2. Context uses progressive disclosure
+### Planning is lightweight and issue-first
 
-The root `AGENTS.md` remains a concise map. Detailed knowledge lives near the files it governs:
+Material work follows this contract:
+
+```text
+parent issue -> reviewed Copilot App Plan -> bounded child issues
+             -> isolated sessions/worktrees -> pull requests
+             -> deterministic CI and review -> optional deployment evidence
+```
+
+The parent issue contains the user outcome and observable acceptance criteria.
+Exactly four child issues record dependencies plus owned and prohibited paths.
+The reviewed Plan resolves shared foundations before parallel implementation.
+
+### Context uses progressive disclosure
 
 ```text
 AGENTS.md                  repository map and universal guardrails
-DESIGN.md                  durable system architecture and boundaries
-docs/                      explanatory and operational documentation
-openspec/                  capability truth and proposed changes
-<directory>/AGENTS.md      local rules and validation for that directory
+DESIGN.md                  durable architecture and boundaries
+docs/                      workshop and operational documentation
+GitHub issues              outcome, acceptance criteria, tasks, ownership
+<directory>/AGENTS.md      local rules and validation
 ```
 
-Agents should receive the smallest authoritative context that is sufficient for their task.
+### Constraints are executable
 
-### 3. Specifications and architecture have different lifetimes
+Important rules are enforced by tests, linters, workflow permissions, policy,
+or structural checks. Documentation explains the rule; automation proves it.
 
-The repository contains two intentionally different design artifacts:
+### Humans approve intent and risk
 
-- Root `DESIGN.md` records durable architecture, boundaries, and system-wide decisions.
-- `openspec/changes/<change-name>/design.md` records the technical approach and trade-offs for one proposed change.
+Agents may explore, plan, implement, test, and prepare pull requests. Humans
+approve the Plan, architectural and security trade-offs, merge, and deployment.
 
-If a change creates a lasting architectural rule, the implementation task must update root design documentation or add an architectural decision record.
+## Application architecture
 
-### 4. Constraints should be executable
-
-Important rules should be enforced by tests, linters, workflow permissions, policy, or structural checks. Documentation explains a constraint; automation proves it remains true.
-
-### 5. Agents need closed feedback loops
-
-An agent must be able to discover the applicable requirements, make a bounded change, run relevant validation, and inspect actionable failure output. CI and deployment workflows must expose enough evidence to diagnose failures without hidden instructor knowledge.
-
-### 6. Humans approve intent and risk
-
-Agents may explore, propose, implement, test, and prepare pull requests. Humans approve the specification, architectural trade-offs, security-sensitive changes, and merge/deployment decisions.
-
-## Delivery architecture
-
-Each workshop team receives an isolated repository created from this template.
-
-```mermaid
-flowchart LR
-    Issue[GitHub issue] --> Change[OpenSpec change]
-    Change --> Review[Human spec and design review]
-    Review --> Agents[Local and cloud coding agents]
-    Agents --> CI[Tests and structural checks]
-    CI --> PR[Pull request]
-    PR --> Security[Code and dependency scanning]
-    Security --> Merge[Human-approved merge]
-    Merge --> Deploy[GitHub Actions with Azure OIDC]
-    Deploy --> Evidence[Deployment evidence]
-    Evidence --> Workflow[GH-AW evidence review]
-```
-
-The deployed sample is a TypeScript system with a React browser client and an
-Express API. Express serves both the API and the production React bundle from a
-single Azure App Service. The API depends on a storage interface: tests use an
-in-memory adapter, while the deployed application uses Azure Table Storage
-through the App Service system-assigned managed identity.
+Babazon.com is a TypeScript system with a React client and Express API. Express
+serves both the API and production React bundle from one process.
 
 ```mermaid
 flowchart LR
     Browser[React client] --> API[Express API]
     API --> Contract[Shared TypeScript contracts]
-    API --> Port[Feedback storage interface]
-    Port --> Memory[In-memory test adapter]
-    Port --> Table[Azure Table Storage adapter]
-    AppService[Azure App Service] --> API
-    AppService -. managed identity .-> Table
+    API --> Catalogue[Read-only catalogue repository]
+    Catalogue --> Seed[Deterministic product seed data]
+    Browser --> Cart[Client-side cart state]
+    AppService[Optional Azure App Service] --> API
     Actions[GitHub Actions] -. OIDC .-> Azure[Azure control plane]
 ```
 
-Dependency direction is inward: UI and transport layers may use shared
-contracts, the API may depend on the storage interface, and Azure-specific code
-implements that interface. Shared contracts do not depend on React, Express, or
-Azure SDK types.
+Dependency direction is inward. UI and transport layers use shared contracts;
+the API depends on the catalogue interface; seed data implements that
+interface. Shared contracts do not depend on React, Express, or Azure SDKs.
+
+## Bounded commerce domain
+
+The starter supports:
+
+- deterministic product catalogue and seed data;
+- product search and category filtering;
+- product details required by the UI;
+- client-side cart additions, removals, and quantity changes;
+- calculated item counts and subtotal;
+- simulated checkout confirmation;
+- accessible loading, empty, validation, success, and failure states;
+- `/health` liveness and catalogue-backed `/ready` readiness.
+
+Non-goals are authentication, customer accounts, real payments, external
+inventory/shipping/tax services, durable orders, and production commerce.
+Money is represented as integer minor units and formatted at the UI boundary.
 
 ## Repository boundaries
 
-| Area | Responsibility | Local guidance |
-|---|---|---|
-| `openspec/` | Capability requirements and proposed change artifacts | `openspec/AGENTS.md` |
-| `docs/` | Durable explanatory, workshop, and operational knowledge | `docs/AGENTS.md` |
-| `infra/` | Azure composition using AVM and environment parameters | `infra/AGENTS.md` |
-| `.github/` | CI, deployment, security, Copilot, and GH-AW configuration | `.github/AGENTS.md` |
-| `src/` | React UI, Express API, shared contracts, and storage adapters | closest `src/**/AGENTS.md` |
-| `tests/` | Unit, API, structural, and focused end-to-end verification | closest `tests/**/AGENTS.md` |
-
-Infrastructure composes pinned Azure Verified Modules (AVM) for supported
-resources. Custom Bicep is limited to composition and documented module gaps.
-The deployment target is Azure App Service with Azure Table Storage and
-monitoring resources in the team's assigned resource group.
+| Area | Responsibility |
+|---|---|
+| `src/shared/` | Framework-independent contracts and deterministic catalogue data |
+| `src/server/` | Express transport, catalogue boundary, logging, and operations |
+| `src/client/` | Accessible product discovery, cart, and simulated checkout |
+| `tests/` | Unit, API, structural, and Playwright verification |
+| `docs/labs/` | Five participant labs and the workshop wrap-up |
+| `.github/` | CI, security, deployment, Copilot, issues, and review templates |
+| `infra/` | Optional generic Azure App Service and monitoring composition |
 
 ## Delivery gates and evidence
 
-Material work uses two review gates:
-
-1. A specification pull request approves the OpenSpec proposal, capability
-   scenarios, change design, and bounded tasks.
-2. Implementation pull requests demonstrate conformance through independent
-   CI, security, infrastructure, and deployment evidence.
-
-The planned workflow contracts are:
-
-| Workflow | Durable responsibility |
+| Workflow | Responsibility |
 |---|---|
-| `openspec.yml` | Validate OpenSpec artifacts and repository integrity |
-| `ci.yml` | Lint, type-check, test, build, and smoke-test the application |
-| `spec-pr-policy.yml` | Require an applicable approved OpenSpec change for governed paths |
-| `codeql.yml` | Run CodeQL where repository visibility and licensing permit |
-| `dependency-review.yml` | Review dependency changes where the feature is available |
-| `infra-validate.yml` | Validate Bicep and produce Azure `what-if` evidence through OIDC |
-| `deploy.yml` | Deploy through a protected environment and verify the live application |
+| `ci.yml` | Lint, type-check, unit/API/UI tests, build, browser QA, and smoke checks |
+| `codeql.yml` | Code scanning where visibility and licensing permit |
+| `dependency-review.yml` | Dependency change review where available |
+| `infra-validate.yml` | Bicep validation and Azure what-if through OIDC |
+| `deploy.yml` | Optional protected deployment and live catalogue verification |
 
-These names describe the approved delivery design; documentation must not imply
-that a workflow is active until its file and a successful run are present.
-Agent reports are not evidence by themselves. Required evidence is produced by
-GitHub checks, security features, Azure deployments, protected-environment
-approvals, health/readiness probes, and the focused feedback smoke test.
-
-## Security and deployment decisions
-
-- Participant repositories are pre-created from a template rather than forked.
-- Every team receives a separately scoped Azure resource group.
-- GitHub Actions authenticates to Azure through OIDC.
-- Azure federation is constrained to the intended repository and GitHub
-  environment; no long-lived Azure client secret is stored.
-- App Service uses a system-assigned managed identity with only the required
-  Storage Table data-plane role.
-- Deployment environments may require human approval.
-- GitHub workflows default to read-only permissions.
-- Agentic workflows use narrow safe outputs and may not self-approve protected changes.
-- Security fixes are verified by deterministic scanners and tests, not by agent claims.
+Workflows default to read-only permissions. Azure authentication uses GitHub
+OIDC and protected environments. Licensed or preview controls must be reported
+as unavailable rather than represented as equivalent local checks.
 
 ## Workshop constraints
 
-- The local environment check must complete before Lab 1.
-- Participant labs use the GitHub Copilot App as the primary interface. Chats,
-  Plan, Interactive, Fleet, Autopilot, sessions, reviews, checks, and pull
-  requests teach the workflow; terminal procedures remain instructor
-  operations or agent-executed validation.
+- The four-hour participant path uses the GitHub Copilot App as the primary
+  interface.
+- Product search and category filtering are the shared feature path.
+- Fleet is used only after shared foundations and non-overlapping ownership are
+  reviewed.
 - Focused tests should return actionable results within two minutes.
-- The standard Azure deployment path should complete within the Lab 3 window.
-- Every lab has a happy path, recovery checkpoint, and optional stretch goal.
-- Starter tasks are intentionally separable to demonstrate parallel agents without merge contention.
-- Fleet is used only after shared dependencies and non-overlapping primary
-  ownership are reviewed.
-
-## Workshop operations
-
-The public default branch remains a starter, not an answer key. Operational
-state is prepared outside participant time:
-
-- one repository is pre-created from the template for each table of two or
-  three participants;
-- instructor scripts verify workstation, GitHub, and Azure readiness and seed
-  bounded GitHub work;
-- the deterministic security exercise exists only on an instructor-created lab
-  branch and draft pull request, never as active vulnerable code on the
-  template default branch;
-- completed checkpoint states remain in a private instructor repository whose
-  access excludes participants and are published into a team repository only
-  when recovery is needed;
-- checkpoint recovery creates a new branch and preserves participant history.
-
-GitHub Actions created with the repository token are not used as the sole
-source of seeded pull requests whose creation must trigger other workflows.
-Instructor preparation uses authenticated GitHub operations so CodeQL and
-other pull-request checks execute normally.
+- Every lab has a happy path, recovery checkpoint, and optional stretch task.
+- Azure deployment remains advanced/instructor material and is not required to
+  complete the participant path.
 
 ## Final workshop outcome
 
-Each team finishes with a reachable Azure App Service running the React/Express
-feedback board, persistent feedback and votes in Azure Table Storage, a merged
-implementation pull request linked to its approved OpenSpec change, independent
-CI/security/deployment evidence, and a GH-AW evidence review with narrow
-authority. A reviewer must be able to reconstruct the issue-to-deployment story
-without access to the originating agent conversations.
-
-An optional 90-120 minute capstone extends the workshop without compressing the
-four-hour agenda. Teams create a net-new application under
-`capstone/<app-name>/` with independent source, tests, CI/CD, AVM/OIDC
-deployment, issue-driven defect remediation, GH-AW feedback, and evidence. The
-existing feedback application remains unchanged and completed capstone
-solutions do not ship on the public template default branch.
-
-Licensing-dependent controls such as CodeQL, dependency review, protected
-environments, cloud agents, and GH-AW are confirmed during instructor readiness.
-Where a control is unavailable, the workshop records the limitation and uses the
-documented fallback without presenting it as equivalent platform enforcement.
+Each team leaves a GitHub-visible chain from a parent Babazon outcome issue,
+through a reviewed Plan and bounded task issues, to pull requests with
+deterministic CI and review evidence. Optional advanced work may add a protected
+Azure deployment and evidence review, but local application and browser QA
+completion does not depend on cloud access.

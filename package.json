@@ -1,5 +1,5 @@
 {
-  "name": "workshop-feedback-board",
+  "name": "babazon",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,16 +10,15 @@
     "dev": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "start": "node dist/server/index.js",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern playwright.config.ts && eslint playwright.config.ts --parser-options \"{\\\"projectService\\\":{\\\"allowDefaultProject\\\":[\\\"playwright.config.ts\\\"],\\\"defaultProject\\\":\\\"tsconfig.server.json\\\"}}\"",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/e2e/**",
     "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
     "build": "tsc -p tsconfig.server.json && vite build",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:e2e"
   },
   "dependencies": {
-    "@azure/data-tables": "^13.3.1",
-    "@azure/identity": "^4.11.1",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.0",
     "react": "^19.1.1",
@@ -28,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.1",

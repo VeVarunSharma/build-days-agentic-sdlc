@@ -1,39 +1,17 @@
-# Azure workshop infrastructure
+# Optional Azure infrastructure
 
-This resource-group-scoped Bicep deployment creates the feedback application's
-Storage account and table, Log Analytics workspace, Application Insights
-component, Linux App Service plan, and Linux web app.
+This resource-group-scoped Bicep composition deploys generic Linux App Service
+and monitoring only:
 
-The web app uses a system-assigned managed identity. A native role assignment
-grants that identity only **Storage Table Data Contributor** on the storage
-account. Shared-key access is disabled. Storage remains reachable over its
-public endpoint so App Service can use it without workshop VNet dependencies;
-authorization is still Microsoft Entra ID-only. The web app requires HTTPS and
-TLS 1.2, disables FTP/SCM basic publishing credentials, and sends diagnostics
-and application telemetry to workspace-based Application Insights.
+- App Service plan: `br/public:avm/res/web/serverfarm:0.7.0`
+- Web app: `br/public:avm/res/web/site:0.24.0`
+- Log Analytics: `br/public:avm/res/operational-insights/workspace:0.16.1`
+- Application Insights: `br/public:avm/res/insights/component:0.8.0`
 
-## Pinned Azure Verified Modules
+Babazon product data is deterministic and read-only, and cart state is
+client-side. No persistence resource or data-plane role assignment is required.
 
-| Resource | Module | Version |
-|---|---|---:|
-| Storage account and table | `avm/res/storage/storage-account` | `0.33.1` |
-| Log Analytics workspace | `avm/res/operational-insights/workspace` | `0.16.1` |
-| Application Insights | `avm/res/insights/component` | `0.8.0` |
-| App Service plan | `avm/res/web/serverfarm` | `0.7.0` |
-| Linux web app | `avm/res/web/site` | `0.24.0` |
-
-The role assignment is composed directly because the storage module cannot
-consume the web app principal without creating a circular module dependency.
-
-## Parameters
-
-Copy `main.example.bicepparam` to an environment-specific file that is not
-committed with secrets. The example contains no subscription, tenant, or
-credential values. Resource names are derived from the target resource group
-and `teamIdentifier`, which isolates teams while satisfying Azure global naming
-requirements.
-
-## Validate
+Validate:
 
 ```powershell
 az bicep build --file .\infra\main.bicep
@@ -46,18 +24,5 @@ az deployment group what-if `
   --parameters .\infra\main.example.bicepparam
 ```
 
-`validate` and `what-if` require an authenticated Azure CLI session and access
-to the assigned team resource group. No subscription-level deployment is
-needed.
-
-## Deploy
-
-```powershell
-az deployment group create `
-  --name workshop-infra `
-  --resource-group <team-resource-group> `
-  --parameters .\infra\main.example.bicepparam
-```
-
-The deployment outputs the application name and HTTPS URL, deployment
-identifier, monitoring resource names/IDs, and storage account/table details.
+GitHub deployment uses OIDC and protected environments. Outputs provide the app
+name, HTTPS URL, resource ID, deployment identifier, and monitoring resources.

@@ -35,9 +35,9 @@ body:
       label: Required variables or secret names
       description: List names only. Never paste values. Prefer OIDC and repository/environment variables.
   - type: input
-    id: openspec
+    id: parent
     attributes:
-      label: OpenSpec change for material configuration
+      label: Parent issue and reviewed Plan
       description: Required for material workflow, infrastructure, security, or behavior changes; otherwise write N/A.
     validations:
       required: true
@@ -48,4 +48,3 @@ body:
       description: State how the change will be tested and where evidence will appear.
     validations:
       required: true
-

@@ -5,6 +5,7 @@ on:
     paths:
       - "package.json"
       - "package-lock.json"
+      - "playwright.config.ts"
       - "src/**"
       - "tests/**"
       - "tsconfig*.json"
@@ -14,6 +15,7 @@ on:
     paths:
       - "package.json"
       - "package-lock.json"
+      - "playwright.config.ts"
       - "src/**"
       - "tests/**"
       - "tsconfig*.json"
@@ -25,7 +27,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,6 +44,18 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run browser QA
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Run health, readiness, and API smoke checks
         shell: bash
         env:
@@ -69,7 +83,7 @@ jobs:
           done
 
           curl --fail --silent --show-error http://127.0.0.1:3000/ready >/dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/api/feedback >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/products >/dev/null
       - name: Upload smoke diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

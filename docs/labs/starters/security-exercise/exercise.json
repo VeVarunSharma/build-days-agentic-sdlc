@@ -4,5 +4,5 @@
   "expectedCodeqlQuery": "js/command-line-injection",
   "vulnerableTemplate": "vulnerable-command.ts.txt",
   "remediatedTemplate": "remediated-command.ts.txt",
-  "openspecScenario": "deterministic-security-exercise: Verifiable remediation"
+  "acceptanceCriterion": "The deterministic command-injection alert is removed without suppression."
 }

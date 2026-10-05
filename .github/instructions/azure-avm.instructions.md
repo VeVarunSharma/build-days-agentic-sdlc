@@ -2,23 +2,22 @@
 applyTo: "infra/**/*.bicep,infra/**/*.bicepparam"
 ---
 
-Read root `AGENTS.md`, root `DESIGN.md`, `infra/AGENTS.md`,
-`infra/README.md`, and the active OpenSpec change before editing.
+Read root `AGENTS.md`, root `DESIGN.md`, `infra/AGENTS.md`, `infra/README.md`,
+the parent issue, reviewed Plan, and assigned child issue before editing.
 
 - Compose Azure resources with the pinned Azure Verified Module references
   documented in `infra/README.md`; do not float versions or replace an AVM
   with handwritten resources for convenience.
 - If AVM cannot express a requirement, record the exact gap and rationale in
-  the active change design before adding narrowly scoped native Bicep. Preserve
-  the existing documented role-assignment exception unless an approved design
-  changes it.
+  the parent issue and reviewed Plan before adding narrowly scoped native
+  Bicep.
 - Keep deployments resource-group scoped and environment values in parameter
   files. Do not embed subscription IDs, tenant IDs, repository identities,
   credentials, or attendee-specific values.
 - GitHub Actions authenticates to Azure with OIDC. Never add client secrets,
   publish profiles, storage keys, or other long-lived deployment credentials.
 - Runtime Azure access uses managed identity and the smallest data-plane role
-  at the smallest practical scope. Do not enable Storage shared-key access.
+  at the smallest practical scope.
 - Treat public ingress, role assignments, destructive changes, and permission
   expansion as explicit review decisions.
 - Preserve outputs required for evidence, including application URL and

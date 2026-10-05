@@ -23,10 +23,10 @@ body:
     validations:
       required: true
   - type: input
-    id: openspec
+    id: parent
     attributes:
-      label: OpenSpec change
-      placeholder: openspec/changes/change-name/
+      label: Parent issue and reviewed Plan
+      placeholder: Link to the sanitized parent issue.
     validations:
       required: true
   - type: textarea
@@ -45,4 +45,3 @@ body:
           required: true
         - label: The fix will not weaken security checks or deployment gates.
           required: true
-

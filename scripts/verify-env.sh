@@ -54,7 +54,7 @@ if [[ -n "$fixture" ]]; then
   state="$(cat "$fixture")"
 else
   state='{"tools":{}}'
-  for tool in git node npm gh az openspec copilot; do
+  for tool in git node npm gh az copilot; do
     value=""
     if command -v "$tool" >/dev/null 2>&1; then
       if [[ "$tool" == "az" ]]; then value="$(az version --output json 2>/dev/null || echo installed)"
@@ -93,7 +93,7 @@ else
   fi
 fi
 
-for tool in git node npm gh az openspec copilot; do
+for tool in git node npm gh az copilot; do
   value="$(jq -r --arg t "$tool" '.tools[$t] // empty' <<<"$state")"
   if [[ -n "$value" ]]; then add_result PASS "tool.$tool" "$value" "installed and callable" ""
   else add_result FAIL "tool.$tool" "not found" "installed and callable" "Install $tool and reopen the terminal."; fi

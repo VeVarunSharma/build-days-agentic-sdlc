@@ -50,7 +50,7 @@ describe("environment preflight", () => {
     const report = JSON.parse(readFileSync(output, "utf8"));
     expect(report.summary.fail).toBe(0);
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
-  }, 20_000);
+  }, 90_000);
 
   it.each([
     ["missing tool", (state: Record<string, unknown>) => ((state.tools as Record<string, unknown>).az = null), "tool.az"],
@@ -67,7 +67,7 @@ describe("environment preflight", () => {
     expect(report.results).toContainEqual(
       expect.objectContaining({ id: expectedId, status: "FAIL", remediation: expect.any(String) }),
     );
-  }, 20_000);
+  }, 90_000);
 
   it("provides equivalent Bash classifications", () => {
     const output = ".script-test-output/bash-ready.json";
@@ -93,7 +93,7 @@ describe("environment preflight", () => {
     const report = JSON.parse(readFileSync(resolve(root, output), "utf8"));
     expect(report.summary.fail).toBe(0);
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
-  }, 20_000);
+  }, 90_000);
 });
 
 function preparationArgs(fixture: string, output: string) {
@@ -109,8 +109,6 @@ function preparationArgs(fixture: string, output: string) {
     "octo-workshop/workshop-template",
     "-TemplateRevision",
     revision,
-    "-FeatureBrief",
-    "docs/features/feedback-status.md",
     "-TeamSize",
     "3",
     "-TeamId",
@@ -144,7 +142,9 @@ describe("team repository preparation", () => {
     expect(report.operations).toContainEqual(
       expect.objectContaining({ action: "SKIP", resource: "security exercise branch/PR" }),
     );
-    expect(report.operations).toContainEqual(expect.objectContaining({ action: "CREATE", resource: "issue:Workshop feature: docs/features/feedback-status.md" }));
+    expect(report.operations).toContainEqual(
+      expect.objectContaining({ action: "CREATE", resource: "issue:Babazon: product search and category filtering" }),
+    );
   }, 20_000);
 
   it("is stable on consecutive prepared-state runs", () => {

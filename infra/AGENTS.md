@@ -2,7 +2,7 @@
 
 This directory composes Azure infrastructure for the workshop application.
 
-- Use pinned Azure Verified Modules unless an approved OpenSpec design records an exception.
+- Use pinned Azure Verified Modules unless a reviewed issue and Plan record an exception.
 - Keep environment-specific values in parameter files, not module logic.
 - Use managed identities and GitHub OIDC; never introduce long-lived Azure credentials.
 - Scope workshop deployments to the assigned team resource group.
@@ -14,10 +14,9 @@ This directory composes Azure infrastructure for the workshop application.
 
 - The entry point is `main.bicep`; deployments are scoped to the assigned resource group.
 - Keep AVM references pinned to the versions documented in `README.md`.
-- The native storage role assignment is intentional: placing it in the storage
-  module would create a dependency cycle with the web app identity.
-- Preserve Microsoft Entra ID-only Table Storage access. Do not enable storage
-  shared keys or add storage credentials to app settings.
+- Keep this optional infrastructure generic. Babazon product data is
+  deterministic and the cart is client-side, so no commerce persistence
+  resource belongs in the baseline.
 
 ## Validation
 

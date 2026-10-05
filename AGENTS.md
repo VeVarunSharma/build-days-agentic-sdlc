@@ -1,59 +1,66 @@
 # Agent guide
 
-This file is the entry point for agents working in this repository. It is a map, not an encyclopedia. Follow links to the authoritative source instead of expanding this file with duplicated guidance.
+This repository is an issue-first Agentic SDLC workshop and a deployable
+Babazon.com starter. Follow links to authoritative context instead of
+duplicating it.
 
 ## Read first
 
-1. Read [`DESIGN.md`](DESIGN.md) for durable architecture and repository boundaries.
-2. Read [`docs/README.md`](docs/README.md) to find task-specific documentation.
-3. For feature or behavior changes, locate the active change under `openspec/changes/<change-name>/`.
-4. Read the closest co-located `AGENTS.md` before modifying files in a directory.
+1. Read [`DESIGN.md`](DESIGN.md) for durable architecture and boundaries.
+2. Read the workshop sequence in [`README.md`](README.md) and open only the
+   assigned lab under `docs/labs/`.
+3. Read the parent GitHub issue, its observable acceptance criteria, and the
+   reviewed Copilot App Plan.
+4. Read the bounded child issue and the closest co-located `AGENTS.md`.
 
 ## Source-of-truth order
 
-When instructions appear to conflict, use this order:
-
-1. Approved OpenSpec capability requirements and scenarios.
-2. Root `DESIGN.md` and accepted architectural decision records.
-3. The active OpenSpec change's `proposal.md` and `design.md`.
-4. The active change's `tasks.md`.
+1. The parent issue's approved outcome and acceptance criteria.
+2. Root `DESIGN.md` and accepted architecture decisions.
+3. The reviewed Copilot App Plan.
+4. The assigned child issue's scope, dependencies, and path ownership.
 5. Root and co-located `AGENTS.md` files.
 6. Existing implementation patterns.
 
-Stop and surface the conflict instead of silently choosing when two higher-priority sources disagree.
+Stop and surface conflicts between higher-priority sources instead of silently
+choosing.
 
-## Required change workflow
+## Required delivery workflow
 
-- Start material feature, behavior, infrastructure, security, or workflow changes with OpenSpec.
-- Do not implement until the proposal, capability specs, design, and tasks are reviewable.
-- Keep change-local implementation decisions in `openspec/changes/<change-name>/design.md`.
-- Update `DESIGN.md` only for durable system-wide decisions or boundary changes.
-- Implement one bounded task at a time and keep `tasks.md` current.
-- Add or update tests for every changed requirement scenario.
-- Run the smallest relevant validation before broader checks.
-- Record deployment and security evidence in the pull request.
-- Archive the OpenSpec change only after validation and review are complete.
+- Start material work with one parent issue describing the user outcome and
+  observable acceptance criteria.
+- Review a Copilot App Plan before implementation.
+- Split implementation into exactly four bounded child issues with explicit
+  dependencies plus owned and prohibited paths.
+- Stabilize shared contracts and foundations before using Fleet.
+- Use isolated sessions or worktrees for parallel tasks and keep ownership
+  non-overlapping.
+- Link pull requests to their parent and child issues and record exact
+  validation results.
+- Treat deterministic CI, review, security, and deployment checks as durable
+  evidence. Agent statements are not evidence by themselves.
+
+GitHub issues, the reviewed Plan, pull requests, and CI are the complete
+delivery record.
 
 ## Engineering guardrails
 
 - Prefer existing patterns and dependencies over new abstractions.
-- Keep agent tasks independently reviewable and avoid overlapping file ownership.
-- Do not weaken tests, security scanning, branch protections, or deployment gates.
-- Use Azure Verified Modules for Azure resources unless the approved design records why not.
-- Use GitHub OIDC for Azure authentication; do not add long-lived cloud credentials.
-- Give workflows least privilege and declare only the write operations they require.
-- Generated files must be reproducible and committed when the owning tool requires them.
-- Do not report completion without test, build, or deployment evidence appropriate to the change.
+- Do not weaken tests, security scanning, branch protections, or deployment
+  gates.
+- Use Azure Verified Modules for Azure resources unless a reviewed issue and
+  Plan document a narrow exception.
+- Use GitHub OIDC for Azure authentication; never add long-lived credentials.
+- Give workflows least privilege and declare only required write permissions.
+- Update tests for every changed acceptance criterion.
+- Do not report completion without relevant validation evidence.
 
 ## Useful commands
 
 ```powershell
-openspec status
-openspec validate --all
 npm run check
 git --no-pager diff --check
 ```
 
-Use focused test commands documented by the closest application or test
-instructions before the full `npm run check`. Deployment and organization
-configuration are documented under `docs/instructor/`.
+Use focused commands documented by the closest application or test guidance
+before the full check.

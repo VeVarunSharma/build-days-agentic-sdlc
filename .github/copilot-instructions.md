@@ -3,27 +3,17 @@
 Before changing code or configuration:
 
 1. Read root `AGENTS.md` and `DESIGN.md`.
-2. Read the closest co-located `AGENTS.md`.
-3. Locate the active OpenSpec change and follow its approved specs, design, and tasks.
+2. Read the parent issue, reviewed Copilot App Plan, and assigned child issue.
+3. Read the closest co-located `AGENTS.md`.
 
-OpenSpec is required for material feature, behavior, infrastructure, security,
-and workflow changes. Implement bounded tasks, preserve repository guardrails,
-and report completion only with relevant validation evidence.
+Material work uses the issue-first flow documented in `AGENTS.md`. Keep tasks
+bounded, honor explicit dependencies and owned/prohibited paths, stabilize
+shared foundations before Fleet, and report completion only with deterministic
+validation evidence.
 
-## OpenSpec invocation
+Do not introduce parallel planning directories, proposal files, or
+repository-local task artifacts. GitHub issues, the reviewed
+Plan, pull requests, and CI are the durable delivery record.
 
-- In GitHub Copilot App project sessions, prefer explicit natural-language skill invocation. Generated `.github/prompts/opsx-*.prompt.md` files provide slash commands in supported Copilot IDE extensions, but the App may not expose those commands through autocomplete.
-- Use `openspec-propose` to create the proposal, delta requirements, design, and tasks. The proposal workflow is planning-only; do not edit implementation code until the user explicitly approves it in a later message.
-- Use `openspec-update-change` when planning artifacts need revision and keep the proposal, specs, design, and tasks consistent.
-- After approval, use `openspec-apply-change`, implement one bounded task at a time, validate it, and keep `tasks.md` checkboxes current.
-- Use `openspec-verify-change` before archiving and resolve critical findings.
-- Use `openspec-archive-change` to sync specifications when appropriate and archive the completed change.
-
-The equivalent Copilot IDE commands are `/opsx-propose`, `/opsx-update`,
-`/opsx-apply`, `/opsx-verify`, and `/opsx-archive`.
-
-## Generated OpenSpec integration
-
-- Treat `.github/skills/openspec-*` and `.github/prompts/opsx-*` as generated files. Refresh them with `openspec update` after selecting the full custom workflow set with `openspec config profile`.
-- Keep OpenSpec's generated GitHub-hosted coding-agent setup disabled. Do not add `.github/workflows/copilot-setup-steps.yml` or `.github/agents/openspec.agent.md` through OpenSpec unless the repository owners explicitly change this policy.
-- Preserve the workshop's separately reviewed custom agents, workflows, exercises, and cloud-agent learning content.
+Preserve reviewed custom agents, exercises, and cloud-agent learning content
+only when they follow this issue-first contract.

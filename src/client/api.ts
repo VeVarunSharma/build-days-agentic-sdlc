@@ -1,8 +1,8 @@
 import type {
   ApiError,
-  CreateFeedbackRequest,
-  Feedback,
-  VoteResult,
+  Product,
+  ProductCategory,
+  ProductListResponse,
 } from "../shared/contracts.js";
 
 export class ApiRequestError extends Error {
@@ -11,18 +11,22 @@ export class ApiRequestError extends Error {
     readonly fieldErrors?: Record<string, string[]>,
   ) {
     super(message);
+    this.name = "ApiRequestError";
   }
 }
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+async function request<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    ...options,
-    headers: {
-      "content-type": "application/json",
-      ...options?.headers,
-    },
+    headers: { accept: "application/json" },
   });
-  const body = (await response.json()) as T | ApiError;
+
+  let body: T | ApiError;
+  try {
+    body = (await response.json()) as T | ApiError;
+  } catch {
+    throw new ApiRequestError("The catalogue returned an invalid response.");
+  }
+
   if (!response.ok) {
     const apiError = body as ApiError;
     throw new ApiRequestError(
@@ -30,29 +34,27 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       apiError.error?.fieldErrors,
     );
   }
+
   return body as T;
 }
 
-export const listFeedback = async (): Promise<Feedback[]> => {
-  const result = await request<{ items: Feedback[] }>("/api/feedback");
-  return result.items;
+export interface ProductFilters {
+  q?: string;
+  category?: ProductCategory;
+}
+
+export const listProducts = (filters: ProductFilters = {}): Promise<ProductListResponse> => {
+  const search = new URLSearchParams();
+  const query = filters.q?.trim();
+  if (query) search.set("q", query);
+  if (filters.category) search.set("category", filters.category);
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return request<ProductListResponse>(`/api/products${suffix}`);
 };
 
-export const createFeedback = async (
-  input: CreateFeedbackRequest,
-): Promise<Feedback> => {
-  const result = await request<{ feedback: Feedback }>("/api/feedback", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-  return result.feedback;
+export const getProduct = async (id: string): Promise<Product> => {
+  const result = await request<{ product: Product }>(
+    `/api/products/${encodeURIComponent(id)}`,
+  );
+  return result.product;
 };
-
-export const voteForFeedback = (
-  id: string,
-  clientId: string,
-): Promise<VoteResult> =>
-  request<VoteResult>(`/api/feedback/${encodeURIComponent(id)}/votes`, {
-    method: "POST",
-    body: JSON.stringify({ clientId }),
-  });

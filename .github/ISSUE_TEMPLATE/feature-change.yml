@@ -1,12 +1,13 @@
-name: Feature change
-description: Propose a material product or behavior change that starts with OpenSpec.
-title: "[Feature]: "
-labels: ["feature", "needs-openspec"]
+name: Outcome change
+description: Define one user outcome and its observable acceptance criteria.
+title: "[Outcome]: "
+labels: ["feature", "planning"]
 body:
   - type: markdown
     attributes:
       value: |
-        Do not begin implementation until the proposal, capability specs, design, and tasks are reviewable.
+        Review a Copilot App Plan and create exactly four bounded child issues
+        before implementation.
   - type: textarea
     id: outcome
     attributes:
@@ -15,25 +16,31 @@ body:
     validations:
       required: true
   - type: textarea
-    id: scenarios
+    id: acceptance
     attributes:
-      label: Acceptance scenarios
-      description: List observable Given/When/Then or When/Then scenarios, including failure behavior.
+      label: Observable acceptance criteria
+      description: List measurable success, empty, validation, and failure behavior.
     validations:
       required: true
-  - type: input
-    id: openspec
+  - type: textarea
+    id: plan
     attributes:
-      label: OpenSpec change
-      description: Link or repository path, for example openspec/changes/change-name/.
-      placeholder: openspec/changes/change-name/
+      label: Copilot App Plan review
+      description: Summarize the reviewed architecture, shared foundations, and decisions.
     validations:
       required: true
   - type: textarea
     id: boundaries
     attributes:
       label: Boundaries and risks
-      description: Note owned paths, dependencies, security considerations, and explicit non-goals.
+      description: Note dependencies, security considerations, explicit non-goals, and task boundaries.
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Bounded child issues
+      description: Link exactly four child issues and summarize their dependencies plus owned/prohibited paths.
     validations:
       required: true
   - type: textarea
@@ -43,4 +50,3 @@ body:
       description: Identify tests, checks, deployment proof, or screenshots needed for review.
     validations:
       required: true
-

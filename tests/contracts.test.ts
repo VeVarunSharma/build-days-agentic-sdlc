@@ -1,52 +1,35 @@
 import {
-  createFeedbackSchema,
+  cartQuantitySchema,
   fieldLimits,
-  voteRequestSchema,
+  productQuerySchema,
 } from "../src/shared/contracts.js";
 
-describe("feedback contracts", () => {
-  it("normalizes valid feedback", () => {
-    expect(
-      createFeedbackSchema.parse({
-        title: "  Clear examples  ",
-        description: "  Add examples  ",
-        category: "content",
-        displayName: "  Ada  ",
-      }),
-    ).toEqual({
-      title: "Clear examples",
-      description: "Add examples",
-      category: "content",
-      displayName: "Ada",
+describe("commerce contracts", () => {
+  it("normalizes valid product queries", () => {
+    expect(productQuerySchema.parse({ q: "  lamp  ", category: "office" })).toEqual({
+      q: "lamp",
+      category: "office",
     });
   });
 
-  it("rejects missing and oversized fields", () => {
-    const result = createFeedbackSchema.safeParse({
-      title: "x".repeat(fieldLimits.title + 1),
-      description: "",
-      category: "unknown",
-      displayName: "",
+  it("rejects unsupported categories and oversized search", () => {
+    const result = productQuerySchema.safeParse({
+      q: "x".repeat(fieldLimits.search + 1),
+      category: "electronics",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.map((issue) => issue.path[0])).toEqual(
-        expect.arrayContaining([
-          "title",
-          "description",
-          "category",
-          "displayName",
-        ]),
+        expect.arrayContaining(["q", "category"]),
       );
     }
   });
 
-  it("accepts workshop-safe client identifiers only", () => {
-    expect(voteRequestSchema.safeParse({ clientId: "client_123-abc" }).success).toBe(
-      true,
-    );
-    expect(voteRequestSchema.safeParse({ clientId: "not/valid" }).success).toBe(
-      false,
-    );
+  it("bounds cart quantities", () => {
+    expect(cartQuantitySchema.parse({ quantity: 3 })).toEqual({ quantity: 3 });
+    expect(cartQuantitySchema.safeParse({ quantity: 0 }).success).toBe(false);
+    expect(
+      cartQuantitySchema.safeParse({ quantity: fieldLimits.quantity + 1 }).success,
+    ).toBe(false);
   });
 });

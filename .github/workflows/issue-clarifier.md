@@ -36,7 +36,8 @@ Review issue `${{ inputs.issue }}` as a read-only workshop issue analyst.
 
 1. Summarize the user or operator outcome requested by the issue.
 2. Identify missing acceptance criteria, constraints, or validation evidence.
-3. If the issue is already clear, state that it is ready for OpenSpec exploration.
-4. Use the single allowed issue comment for the concise result.
+3. Check for dependencies plus owned and prohibited paths.
+4. If the issue is already clear, state that it is ready for Copilot App planning.
+5. Use the single allowed issue comment for the concise result.
 
 Do not edit files, assign the issue, approve changes, merge, or deploy.
