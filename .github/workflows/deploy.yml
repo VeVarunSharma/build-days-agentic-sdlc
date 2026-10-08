@@ -86,17 +86,32 @@ jobs:
         env:
           TEAM_ID: ${{ inputs.teamId }}
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          FOUNDRY_PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+          FOUNDRY_AGENT_NAME: ${{ vars.FOUNDRY_AGENT_NAME }}
+          FOUNDRY_SUBSCRIPTION_ID: ${{ vars.FOUNDRY_SUBSCRIPTION_ID }}
+          FOUNDRY_RESOURCE_GROUP_NAME: ${{ vars.FOUNDRY_RESOURCE_GROUP_NAME }}
+          FOUNDRY_ACCOUNT_NAME: ${{ vars.FOUNDRY_ACCOUNT_NAME }}
+          FOUNDRY_PROJECT_NAME: ${{ vars.FOUNDRY_PROJECT_NAME }}
         run: |
           set -euo pipefail
           [[ "$TEAM_ID" =~ ^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$ ]]
-          deployment="$(az deployment group create --name "workshop-${GITHUB_RUN_ID}" --resource-group "$RESOURCE_GROUP" --template-file infra/main.bicep --parameters infra/main.example.bicepparam teamIdentifier="$TEAM_ID" --output json)"
+          foundry_values=("$FOUNDRY_PROJECT_ENDPOINT" "$FOUNDRY_AGENT_NAME" "$FOUNDRY_SUBSCRIPTION_ID" "$FOUNDRY_RESOURCE_GROUP_NAME" "$FOUNDRY_ACCOUNT_NAME" "$FOUNDRY_PROJECT_NAME")
+          foundry_value_count=0
+          for value in "${foundry_values[@]}"; do [ -z "$value" ] || foundry_value_count=$((foundry_value_count + 1)); done
+          if [ "$foundry_value_count" -ne 0 ] && [ "$foundry_value_count" -ne "${#foundry_values[@]}" ]; then
+            echo "::error::Foundry deployment variables must be either all configured or all unset."
+            exit 1
+          fi
+          deployment="$(az deployment group create --name "workshop-${GITHUB_RUN_ID}" --resource-group "$RESOURCE_GROUP" --template-file infra/main.bicep --parameters infra/main.example.bicepparam teamIdentifier="$TEAM_ID" foundryProjectEndpoint="$FOUNDRY_PROJECT_ENDPOINT" foundryAgentName="$FOUNDRY_AGENT_NAME" foundrySubscriptionId="$FOUNDRY_SUBSCRIPTION_ID" foundryResourceGroupName="$FOUNDRY_RESOURCE_GROUP_NAME" foundryAccountName="$FOUNDRY_ACCOUNT_NAME" foundryProjectName="$FOUNDRY_PROJECT_NAME" --output json)"
           app_name="$(jq -r '.properties.outputs.appName.value // empty' <<< "$deployment")"
           app_url="$(jq -r '.properties.outputs.appUrl.value // empty' <<< "$deployment")"
           deployment_name="$(jq -r '.name // empty' <<< "$deployment")"
-          [ -n "$app_name" ] && [ -n "$app_url" ] && [ -n "$deployment_name" ]
+          foundry_configured="$(jq -r '.properties.outputs.foundryConfigured.value' <<< "$deployment")"
+          [ -n "$app_name" ] && [ -n "$app_url" ] && [ -n "$deployment_name" ] && [[ "$foundry_configured" =~ ^(true|false)$ ]]
           echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
           echo "application_url=${app_url%/}" >> "$GITHUB_OUTPUT"
           echo "deployment_name=$deployment_name" >> "$GITHUB_OUTPUT"
+          echo "foundry_configured=$foundry_configured" >> "$GITHUB_OUTPUT"
       - name: Deploy application package
         run: az webapp deploy --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ steps.infrastructure.outputs.app_name }}" --src-path app.zip --type zip --clean true --restart true
       - name: Verify deployed health, readiness, catalogue, search, filter, and page
@@ -104,6 +119,7 @@ jobs:
         shell: bash
         env:
           APPLICATION_URL: ${{ steps.infrastructure.outputs.application_url }}
+          FOUNDRY_CONFIGURED: ${{ steps.infrastructure.outputs.foundry_configured }}
         run: |
           set -euo pipefail
           for attempt in {1..36}; do curl --fail --silent "$APPLICATION_URL/health" >/dev/null && break; [ "$attempt" -lt 36 ] || exit 1; sleep 10; done
@@ -115,6 +131,13 @@ jobs:
           category="$(curl --fail --silent --get --data-urlencode 'category=home' "$APPLICATION_URL/api/products")"
           jq -e '.query.category == "home" and all(.items[]; .category == "home")' <<< "$category" >/dev/null
           curl --fail --silent "$APPLICATION_URL/" | grep -qi '<html'
+          mission_planner_verified=false
+          if [ "$FOUNDRY_CONFIGURED" = "true" ]; then
+            mission="$(curl --fail --silent --request POST --header 'content-type: application/json' --data '{"goal":"Create a productive desk setup","budgetCents":10000,"maxItems":3}' "$APPLICATION_URL/api/shopping-missions")"
+            jq -e '.plan.items | length > 0' <<< "$mission" >/dev/null
+            mission_planner_verified=true
+          fi
+          echo "mission_planner_verified=$mission_planner_verified" >> "$GITHUB_OUTPUT"
       - name: Create machine-readable deployment evidence
         shell: bash
         env:
@@ -123,9 +146,11 @@ jobs:
           PR_NUMBER: ${{ needs.validate-linkage.outputs.pull_request_number }}
           REQUIRED_CHECKS: ${{ needs.validate-linkage.outputs.required_checks }}
           SECURITY_CHECKS: ${{ needs.validate-linkage.outputs.security_checks }}
+          FOUNDRY_CONFIGURED: ${{ steps.infrastructure.outputs.foundry_configured }}
+          MISSION_PLANNER_VERIFIED: ${{ steps.verify.outputs.mission_planner_verified }}
         run: |
-          jq -c -n --arg commit_sha "$GITHUB_SHA" --argjson pull_request_number "$PR_NUMBER" --argjson required_checks "$REQUIRED_CHECKS" --argjson security_checks "$SECURITY_CHECKS" --arg deployment_name "$DEPLOYMENT_NAME" --arg github_run_id "$GITHUB_RUN_ID" --arg application_url "$APPLICATION_URL" --arg workflow_run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" '{schema_version:1,commit_sha:$commit_sha,pull_request_number:$pull_request_number,required_checks:$required_checks,security_checks:$security_checks,deployment_name:$deployment_name,github_run_id:$github_run_id,environment:"workshop",application_url:$application_url,verification:{health:true,readiness:true,catalogue:true,search:true,category_filter:true,page:true},workflow_run_url:$workflow_run_url}' > deployment-evidence.json
-          jq -e '.required_checks.status == "passed" and (.security_checks.status == "passed" or .security_checks.status == "not_run") and ([.verification[]] | all)' deployment-evidence.json >/dev/null
+          jq -c -n --arg commit_sha "$GITHUB_SHA" --argjson pull_request_number "$PR_NUMBER" --argjson required_checks "$REQUIRED_CHECKS" --argjson security_checks "$SECURITY_CHECKS" --arg deployment_name "$DEPLOYMENT_NAME" --arg github_run_id "$GITHUB_RUN_ID" --arg application_url "$APPLICATION_URL" --argjson foundry_configured "$FOUNDRY_CONFIGURED" --argjson mission_planner_verified "$MISSION_PLANNER_VERIFIED" --arg workflow_run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" '{schema_version:1,commit_sha:$commit_sha,pull_request_number:$pull_request_number,required_checks:$required_checks,security_checks:$security_checks,deployment_name:$deployment_name,github_run_id:$github_run_id,environment:"workshop",application_url:$application_url,foundry:{configured:$foundry_configured,system_assigned_identity:true,agent_consumer_role_assigned:$foundry_configured,mission_planner_smoke:$mission_planner_verified,endpoint_included:false},verification:{health:true,readiness:true,catalogue:true,search:true,category_filter:true,page:true},workflow_run_url:$workflow_run_url}' > deployment-evidence.json
+          jq -e '.required_checks.status == "passed" and (.security_checks.status == "passed" or .security_checks.status == "not_run") and ([.verification[]] | all) and .foundry.system_assigned_identity and (.foundry.endpoint_included | not) and (if .foundry.configured then .foundry.agent_consumer_role_assigned and .foundry.mission_planner_smoke else (.foundry.agent_consumer_role_assigned | not) and (.foundry.mission_planner_smoke | not) end)' deployment-evidence.json >/dev/null
       - name: Upload deployment evidence
         uses: actions/upload-artifact@v4
         with:
@@ -162,6 +187,7 @@ jobs:
           - Commit: $(jq -r '.commit_sha' "$evidence_path")
           - Azure deployment: $(jq -r '.deployment_name' "$evidence_path")
           - Live checks: health, readiness, catalogue, search, category filter, and page availability passed
+          - Foundry mission planner: $(jq -r 'if .foundry.configured then "configured; managed identity, role assignment, and mission smoke verified" else "unconfigured; generic deployment preserved" end' "$evidence_path")
           - Application: $(jq -r '.application_url' "$evidence_path")
           - Workflow: $(jq -r '.workflow_run_url' "$evidence_path")"
           comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PR_NUMBER/comments" --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n 1)"

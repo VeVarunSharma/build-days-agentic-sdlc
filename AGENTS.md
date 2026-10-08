@@ -13,6 +13,10 @@ duplicating it.
    reviewed Copilot App Plan.
 4. Read the bounded child issue and the closest co-located `AGENTS.md`.
 
+For the optional capstone, read `docs/labs/06-open-agentic-capstone.md` and
+`capstone/AGENTS.md`. The capstone exception below replaces steps 3 and 4 only
+inside a named `capstone/<app-name>/` subtree.
+
 ## Source-of-truth order
 
 1. The parent issue's approved outcome and acceptance criteria.
@@ -42,6 +46,21 @@ choosing.
 
 GitHub issues, the reviewed Plan, pull requests, and CI are the complete
 delivery record.
+
+## Optional capstone exception
+
+The optional open agentic capstone is not issue-first. Inside a named
+`capstone/<app-name>/` subtree, teams use:
+
+- a reviewed Copilot App Plan summarized in the capstone README;
+- Interactive steering evidence;
+- two to four non-overlapping Fleet tasks with dependencies and path ownership;
+- deterministic tests, deployed Foundry evidence, and a user-facing demo.
+
+This exception does not authorize capstone tasks to change root dependencies,
+workflows, infrastructure, or shared Babazon files without one explicitly
+owned integration task. Root repository changes continue to follow the required
+issue-first workflow.
 
 ## Engineering guardrails
 

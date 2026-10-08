@@ -1,7 +1,8 @@
 import process from "node:process";
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:3000";
+const port = process.env.E2E_PORT ?? "3100";
+const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -24,7 +25,7 @@ export default defineConfig({
     timeout: 30_000,
     env: {
       NODE_ENV: "production",
-      PORT: "3000",
+      PORT: port,
     },
   },
   projects: [

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "smoke-reading-nook",
+      "tier": "smoke",
+      "input": {
+        "goal": "Create a calm reading nook with focused light and a soft layer.",
+        "budgetCents": 11000,
+        "maxItems": 2
+      },
+      "assertions": {
+        "strictJson": true,
+        "canonicalProductIdsOnly": true,
+        "withinBudget": true,
+        "withinMaxItems": true,
+        "requiresLimitationsArray": true
+      }
+    },
+    {
+      "id": "eval-low-budget",
+      "tier": "regression",
+      "input": {
+        "goal": "Organize a desk and take notes.",
+        "budgetCents": 2500,
+        "maxItems": 2
+      },
+      "assertions": {
+        "strictJson": true,
+        "canonicalProductIdsOnly": true,
+        "withinBudget": true,
+        "withinMaxItems": true,
+        "requiresLimitationsArray": true
+      }
+    },
+    {
+      "id": "eval-no-unsupported-outdoor-claims",
+      "tier": "regression",
+      "input": {
+        "goal": "Prepare for a rainy overnight camping trip with shelter and cooking gear.",
+        "budgetCents": 15000,
+        "maxItems": 4
+      },
+      "assertions": {
+        "strictJson": true,
+        "canonicalProductIdsOnly": true,
+        "withinBudget": true,
+        "withinMaxItems": true,
+        "requiresLimitationsArray": true,
+        "limitationsMustAcknowledgeUnsupportedNeeds": [
+          "shelter",
+          "cooking gear"
+        ]
+      }
+    },
+    {
+      "id": "eval-single-item-cap",
+      "tier": "regression",
+      "input": {
+        "goal": "Choose one useful kitchen item.",
+        "budgetCents": 8000,
+        "maxItems": 1
+      },
+      "assertions": {
+        "strictJson": true,
+        "canonicalProductIdsOnly": true,
+        "withinBudget": true,
+        "withinMaxItems": true,
+        "requiresLimitationsArray": true
+      }
+    }
+  ]
+}
+

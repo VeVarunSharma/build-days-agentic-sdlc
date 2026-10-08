@@ -3,13 +3,19 @@ import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
-const participantLabs = [
+const coreLabs = [
   "docs/labs/01-outcome-and-plan.md",
   "docs/labs/02-multi-agent-orchestration.md",
   "docs/labs/03-build-test-deploy.md",
-  "docs/labs/04-cloud-agent.md",
+  "docs/labs/04-foundry-mission-planner.md",
   "docs/labs/05-gh-aw.md",
-  "docs/labs/workshop-wrap-and-evidence.md",
+];
+const wrapUp = "docs/labs/workshop-wrap-and-evidence.md";
+const capstoneLab = "docs/labs/06-open-agentic-capstone.md";
+const participantLabs = [
+  ...coreLabs,
+  capstoneLab,
+  wrapUp,
 ];
 const ownedTextFiles = [
   "README.md",
@@ -33,7 +39,7 @@ function listMarkdownFiles(directory: string, prefix = ""): string[] {
 }
 
 describe("issue-first workshop documentation", () => {
-  it("keeps only the five participant labs and wrap-up under docs", () => {
+  it("keeps five core labs, one optional capstone, and the wrap-up under docs", () => {
     expect(listMarkdownFiles("docs")).toEqual([...participantLabs].sort());
   });
 
@@ -82,11 +88,81 @@ describe("issue-first workshop documentation", () => {
     expect(content).toContain("application page");
   });
 
+  it("makes the Foundry lab App-first, gated, real, and cleanable", () => {
+    const lab = read("docs/labs/04-foundry-mission-planner.md");
+    const compactLab = lab.replace(/\s+/g, " ");
+    for (const required of [
+      "Copilot App Interactive mode",
+      "foundry/",
+      "azd env new <unique-name>",
+      "unique",
+      "subscription",
+      "location",
+      "resource group",
+      "model name/version",
+      "explicit review",
+      "azd provision",
+      "npm run foundry:render",
+      "npm run foundry:deploy-agent",
+      "smoke-reading-nook",
+      "FOUNDRY_PROJECT_ENDPOINT",
+      "FOUNDRY_AGENT_NAME",
+      "Build my basket",
+      "add the validated bundle to the cart",
+      "azd down",
+      "permissions",
+      "region/model availability",
+      "quota",
+      "capability-unavailable",
+      "organizer-provided",
+      "not evidence that Foundry worked",
+    ]) {
+      expect(compactLab).toContain(required);
+    }
+    expect(compactLab).toContain("never commit their values");
+    expect(compactLab).toContain(
+      "Never present mocks, fixtures, or local-only tests as a fallback.",
+    );
+    expect(existsSync(resolve(root, "docs/labs/04-cloud-agent.md"))).toBe(false);
+  });
+
   it("links every participant lab directly from the root README", () => {
     const readme = read("README.md");
     for (const path of participantLabs) {
       expect(readme, `README.md does not link ${path}`).toContain(`](${path})`);
     }
+  });
+
+  it("keeps the capstone open-domain, mode-led, Foundry-backed, and not issue-first", () => {
+    const lab = read(capstoneLab).replace(/\s+/g, " ");
+    const capstone = read("capstone/README.md").replace(/\s+/g, " ");
+    for (const required of [
+      "not issue-first",
+      "Copilot App Chat or Explore",
+      "Copilot App Plan mode",
+      "Copilot App Interactive mode",
+      "Fleet with two to four isolated sessions",
+      "deploy one prompt agent",
+      "server using Entra authentication",
+      "user-facing",
+      "deterministic",
+      "Playwright",
+      "cleanup owner",
+      "extend Babazon",
+      "capstone/<app-name>",
+    ]) {
+      expect(`${lab} ${capstone}`).toContain(required);
+    }
+    expect(lab).toContain("A portal playground, raw model call, fixture, or mock is not deployed-agent evidence.");
+    expect(read("README.md")).toContain("## Optional capstone");
+    expect(read("AGENTS.md")).toContain("## Optional capstone exception");
+  });
+
+  it("ships no completed capstone application", () => {
+    const entries = readdirSync(resolve(root, "capstone"), {
+      withFileTypes: true,
+    }).map((entry) => entry.name).sort();
+    expect(entries).toEqual(["AGENTS.md", "README.md", "foundry-template"]);
   });
 
   it("contains no legacy execution path or obsolete product language", () => {
@@ -107,8 +183,16 @@ describe("issue-first workshop documentation", () => {
 
   it("pins GH-AW and permits exactly one safe output", () => {
     const lab = read("docs/labs/05-gh-aw.md");
-    expect(lab).toContain("v0.89.21");
-    expect(lab).toContain("exactly one safe output");
+    const stretch = lab.slice(lab.indexOf("## Stretch"));
+    const core = lab.slice(0, lab.indexOf("## Stretch"));
+    const compactCore = core.replace(/\s+/g, " ");
+    expect(compactCore).toContain("CodeQL");
+    expect(compactCore).toContain("required security evidence");
+    expect(core).not.toContain("GH-AW");
+    expect(stretch).toContain("v0.89.21");
+    expect(stretch).toContain("Create or update");
+    expect(stretch).toContain("Then run it");
+    expect(stretch).toContain("exactly one safe output");
     expect(read(".github/workflows/issue-clarifier.md")).toContain("max: 1");
   });
 });
