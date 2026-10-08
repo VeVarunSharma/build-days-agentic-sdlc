@@ -1,16 +1,15 @@
-# Lab 5: Security and bounded automation
+# Lab 5: Deterministic security remediation
 
 ## Outcome
 
-Remediate a deterministic CodeQL finding and inspect a GH-AW that writes exactly
-one safe issue comment.
+Remediate a deterministic CodeQL finding without suppressing or bypassing the
+security control.
 
 ## Prerequisites
 
 - The prepared team repository includes the isolated security exercise branch
   and draft pull request.
 - CodeQL is available or its absence is recorded.
-- GH-AW preview access is available for the automation stretch.
 
 ## Participant steps
 
@@ -29,39 +28,32 @@ evidence.
 **Decide:** Merge only after human review confirms the finding was fixed rather
 than hidden.
 
-**Use:** GH-AW source and generated lock workflow.
-
-**Attach:** `.github/workflows/issue-clarifier.md` and the pinned creation guide
-at `https://raw.githubusercontent.com/github/gh-aw/v0.89.21/create.md`.
-
-**Prompt:** Review the workflow for least privilege, untrusted input handling,
-and exactly one safe output: an issue comment requesting missing acceptance
-criteria, dependencies, owned paths, or prohibited paths. Use version `v0.89.21`,
-installing or converging the extension to that version when necessary. Do not
-use `main` or `latest`.
-
-**Expect:** Reviewed Markdown source and its compiled lock workflow.
-
-**Decide:** Do not enable the workflow if preview access, compilation, or safe
-output review is unavailable. Reference `https://github.github.com/gh-aw/` and
-the [public preview announcement](https://github.blog/changelog/2026-06-11-github-agentic-workflows-is-now-in-public-preview/).
-
 ## Expected repository artifacts
 
 - Security issue and pull request with CodeQL evidence.
-- Reviewed GH-AW Markdown source and generated lock file.
+- Focused remediation test results and before/after alert evidence.
 
 ## Verification
 
-Confirm the security check result, inspect workflow permissions, and verify the
-workflow has exactly one safe output and cannot approve or merge its own work.
+Confirm the focused test and CodeQL result on the final commit. Inspect the diff
+to prove the unsafe construction was replaced rather than ignored, excluded, or
+suppressed.
 
 ## Recovery
 
-If CodeQL or GH-AW is unavailable, record `capability-unavailable`, complete the
-local remediation test, and review the checked-in workflow statically.
+If CodeQL is unavailable, record `capability-unavailable`, complete the local
+remediation test, and leave the pull request open until the required security
+evidence can be produced.
 
 ## Stretch
 
-Run the workflow on a disposable issue missing one boundary field and inspect
-the resulting comment.
+Create or update the checked-in GH-AW from the pinned `v0.89.21` creation guide
+at `https://raw.githubusercontent.com/github/gh-aw/v0.89.21/create.md`; do not
+use `main` or `latest`. Review its Markdown source and generated lock workflow
+for least privilege, untrusted input handling, and exactly one safe output: an
+issue comment requesting missing acceptance criteria, dependencies, owned
+paths, or prohibited paths. Do not enable it when preview access, compilation,
+or safe-output review is unavailable. Then run it on a disposable issue missing
+one boundary field and inspect the resulting comment. Reference
+`https://github.github.com/gh-aw/` and the
+[public preview announcement](https://github.blog/changelog/2026-06-11-github-agentic-workflows-is-now-in-public-preview/).

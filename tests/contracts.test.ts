@@ -2,6 +2,8 @@ import {
   cartQuantitySchema,
   fieldLimits,
   productQuerySchema,
+  promptAgentProposalSchema,
+  shoppingMissionRequestSchema,
 } from "../src/shared/contracts.js";
 
 describe("commerce contracts", () => {
@@ -30,6 +32,65 @@ describe("commerce contracts", () => {
     expect(cartQuantitySchema.safeParse({ quantity: 0 }).success).toBe(false);
     expect(
       cartQuantitySchema.safeParse({ quantity: fieldLimits.quantity + 1 }).success,
+    ).toBe(false);
+  });
+
+  it("normalizes and bounds shopping mission requests", () => {
+    expect(
+      shoppingMissionRequestSchema.parse({
+        goal: "  Equip a calm reading nook  ",
+        budgetCents: 10_000,
+        maxItems: 3,
+      }),
+    ).toEqual({
+      goal: "Equip a calm reading nook",
+      budgetCents: 10_000,
+      maxItems: 3,
+    });
+
+    expect(
+      shoppingMissionRequestSchema.safeParse({
+        goal: "",
+        budgetCents: 0,
+        maxItems: fieldLimits.missionMaxItems + 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("treats prompt-agent proposals as strict untrusted input", () => {
+    const proposal = {
+      title: "  Reading nook essentials  ",
+      summary: "  A focused two-product set.  ",
+      items: [
+        {
+          productId: "  aurora-desk-lamp  ",
+          quantity: 1,
+          reason: "  Provides focused light.  ",
+        },
+      ],
+      limitations: ["  Does not include seating.  "],
+    };
+
+    expect(promptAgentProposalSchema.parse(proposal)).toEqual({
+      title: "Reading nook essentials",
+      summary: "A focused two-product set.",
+      items: [
+        {
+          productId: "aurora-desk-lamp",
+          quantity: 1,
+          reason: "Provides focused light.",
+        },
+      ],
+      limitations: ["Does not include seating."],
+    });
+    expect(
+      promptAgentProposalSchema.safeParse({
+        ...proposal,
+        items: [{ ...proposal.items[0], quantity: 0 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      promptAgentProposalSchema.safeParse({ ...proposal, ignored: true }).success,
     ).toBe(false);
   });
 });

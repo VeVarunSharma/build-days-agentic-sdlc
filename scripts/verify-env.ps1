@@ -4,6 +4,17 @@ param(
     [string]$ExpectedRevision,
     [string]$AzureSubscriptionId,
     [string]$AzureResourceGroup,
+    [string]$FoundryLocation = "eastus2",
+    [string]$FoundryModelName = "gpt-4.1-mini",
+    [string]$FoundryModelVersion = "2025-04-14",
+    [string]$FoundryModelSku = "GlobalStandard",
+    [string]$FoundryTeamName,
+    [string]$FoundryEnvironmentName,
+    [string]$FoundryProjectResourceId,
+    [string[]]$ApprovedFoundryCombinations = @(
+        "eastus2|gpt-4.1-mini|2025-04-14|GlobalStandard",
+        "swedencentral|gpt-4.1-mini|2025-04-14|GlobalStandard"
+    ),
     [string[]]$Environments = @("workshop-validation", "workshop"),
     [string[]]$RequiredVariables = @("TEAM_ID", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID", "AZURE_RESOURCE_GROUP"),
     [bool]$RequireCloudValidation = $true,
@@ -44,7 +55,7 @@ function Invoke-JsonCommand {
 
 function Get-LiveState {
     $state = [ordered]@{ tools = @{} }
-    foreach ($tool in @("git", "node", "npm", "gh", "az", "copilot")) {
+    foreach ($tool in @("git", "node", "npm", "gh", "az", "azd", "copilot")) {
         $command = Get-Command $tool -ErrorAction SilentlyContinue
         if (-not $command) {
             $state.tools[$tool] = $null
@@ -62,6 +73,12 @@ function Get-LiveState {
     $state.ghAuthenticated = $LASTEXITCODE -eq 0
     & az account show --output none 2>$null
     $state.azAuthenticated = $LASTEXITCODE -eq 0
+    if (Get-Command azd -ErrorAction SilentlyContinue) {
+        & azd auth login --check-status 2>&1 | Out-Null
+        $state.azdAuthenticated = $LASTEXITCODE -eq 0
+    } else {
+        $state.azdAuthenticated = $false
+    }
     if (-not $Repository) {
         $origin = (& git remote get-url origin 2>$null | Out-String).Trim()
         if ($origin -match "github\.com[:/](?<repo>[^/]+/[^/.]+)(?:\.git)?$") { $script:Repository = $Matches.repo }
@@ -111,13 +128,92 @@ function Get-LiveState {
 
     if ($state.azAuthenticated) {
         $account = Invoke-JsonCommand "az" @("account", "show", "--output", "json")
-        $state.subscriptionId = [string]$account.id
+        $state.subscriptionActive = [string]$account.state -eq "Enabled"
+        $state.subscriptionMatchesExpected = [string]$account.id -eq $AzureSubscriptionId
         try {
             $group = Invoke-JsonCommand "az" @("group", "show", "--subscription", $AzureSubscriptionId, "--name", $AzureResourceGroup, "--output", "json")
-            $state.resourceGroupId = [string]$group.id
-            $state.resourceGroupAccessible = $true
+            $state.resourceGroupAccessible = [bool]$group.id
         } catch { $state.resourceGroupAccessible = $false }
+        try {
+            $provider = Invoke-JsonCommand "az" @("provider", "show", "--namespace", "Microsoft.CognitiveServices", "--subscription", $AzureSubscriptionId, "--output", "json")
+            $state.cognitiveServicesProviderRegistered = [string]$provider.registrationState -eq "Registered"
+        } catch { $state.cognitiveServicesProviderRegistered = $false }
+        try {
+            $scope = "/subscriptions/$AzureSubscriptionId/resourceGroups/$AzureResourceGroup"
+            $permissions = Invoke-JsonCommand "az" @(
+                "rest", "--method", "get",
+                "--url", "https://management.azure.com$scope/providers/Microsoft.Authorization/permissions?api-version=2022-04-01"
+            )
+            $requiredActions = @(
+                "Microsoft.Resources/deployments/write",
+                "Microsoft.CognitiveServices/accounts/write",
+                "Microsoft.CognitiveServices/accounts/projects/write",
+                "Microsoft.CognitiveServices/accounts/deployments/write",
+                "Microsoft.Authorization/roleAssignments/write"
+            )
+            $state.foundryPermissionsReady = @($requiredActions | Where-Object {
+                $requiredAction = $_
+                -not @($permissions.value | Where-Object {
+                    $permission = $_
+                    @($permission.actions | Where-Object { $requiredAction -like $_ }).Count -gt 0 -and
+                    @($permission.notActions | Where-Object { $requiredAction -like $_ }).Count -eq 0
+                }).Count
+            }).Count -eq 0
+        } catch { $state.foundryPermissionsReady = $false }
+        if ($FoundryProjectResourceId) {
+            try {
+                $principalId = (& az ad signed-in-user show --query id --output tsv 2>$null | Out-String).Trim()
+                if ($LASTEXITCODE -ne 0 -or !$principalId) { throw "Unable to resolve signed-in user." }
+                $assignments = Invoke-JsonCommand "az" @(
+                    "role", "assignment", "list",
+                    "--assignee-object-id", $principalId,
+                    "--scope", $FoundryProjectResourceId,
+                    "--include-inherited",
+                    "--output", "json"
+                )
+                $allowedRoles = @("Foundry User", "Foundry Owner", "Foundry Project Manager")
+                $state.foundryAgentAccessReady = @($assignments | Where-Object {
+                    $allowedRoles -contains [string]$_.roleDefinitionName
+                }).Count -gt 0
+            } catch { $state.foundryAgentAccessReady = $false }
+        } else {
+            $state.foundryAgentAccessReady = $null
+        }
+        try {
+            $models = Invoke-JsonCommand "az" @("cognitiveservices", "model", "list", "--location", $FoundryLocation, "--subscription", $AzureSubscriptionId, "--output", "json")
+            $state.foundryModelAvailable = @($models | Where-Object {
+                [string]$_.name -eq $FoundryModelName -and
+                [string]$_.version -eq $FoundryModelVersion -and
+                @($_.skus | Where-Object { [string]$_.name -eq $FoundryModelSku }).Count -gt 0
+            }).Count -gt 0
+        } catch { $state.foundryModelAvailable = $false }
+        try {
+            $usages = Invoke-JsonCommand "az" @("cognitiveservices", "usage", "list", "--location", $FoundryLocation, "--subscription", $AzureSubscriptionId, "--output", "json")
+            $matchingUsage = @($usages | Where-Object {
+                $usageName = [string]$_.name.value
+                $usageName -like "*$FoundryModelName*" -and $usageName -like "*$FoundryModelSku*"
+            })
+            $state.foundryQuotaAvailable = @($matchingUsage | Where-Object {
+                [double]$_.limit - [double]$_.currentValue -gt 0
+            }).Count -gt 0
+        } catch { $state.foundryQuotaAvailable = $false }
     }
+    $resolvedTeamName = if ($FoundryTeamName) { $FoundryTeamName } elseif ($Repository) { ($Repository -split "/")[-1] } else { "" }
+    $resolvedEnvironmentName = if ($FoundryEnvironmentName) { $FoundryEnvironmentName } elseif ($resolvedTeamName) { "$resolvedTeamName-foundry" } else { "" }
+    $state.foundryLocation = $FoundryLocation
+    $state.foundryModelName = $FoundryModelName
+    $state.foundryModelVersion = $FoundryModelVersion
+    $state.foundryModelSku = $FoundryModelSku
+    $state.foundryCombinationApproved = $ApprovedFoundryCombinations -contains "$FoundryLocation|$FoundryModelName|$FoundryModelVersion|$FoundryModelSku"
+    $state.foundryTeamName = $resolvedTeamName
+    $state.foundryEnvironmentName = $resolvedEnvironmentName
+    $state.foundryNamesUniqueSafe = (
+        $resolvedTeamName -match "^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$" -and
+        $resolvedEnvironmentName -match "^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$" -and
+        $resolvedEnvironmentName -ne $resolvedTeamName -and
+        $resolvedEnvironmentName.StartsWith("$resolvedTeamName-")
+    )
+    $state.foundryFallbackAvailable = $false
     return $state
 }
 
@@ -133,6 +229,7 @@ $toolRemediation = @{
     npm = "Install npm with the supported Node.js distribution."
     gh = "Install GitHub CLI, then run 'gh auth login'."
     az = "Install Azure CLI, then run 'az login'."
+    azd = "Install Azure Developer CLI, then run 'azd auth login'."
     copilot = "Install GitHub Copilot CLI and confirm 'copilot --version'."
 }
 foreach ($tool in $toolRemediation.Keys) {
@@ -163,6 +260,11 @@ if ($state.azAuthenticated) {
 } else {
     Add-Result FAIL "auth.azure" "not authenticated" "Azure CLI authenticated" "Run 'az login' with the workshop account and select the assigned subscription."
 }
+if ($state.azdAuthenticated) {
+    Add-Result PASS "auth.azd" "authenticated" "Azure Developer CLI authenticated" ""
+} else {
+    Add-Result FAIL "auth.azd" "not authenticated" "Azure Developer CLI authenticated" "Run 'azd auth login' with the workshop account, then rerun readiness."
+}
 
 $actualRepo = [string]$state.repository
 if ($actualRepo -and (!$Repository -or $actualRepo -eq $Repository)) {
@@ -182,11 +284,11 @@ foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnable
     } else {
         Add-Result FAIL "github.$($feature[0])" "disabled or unavailable" "enabled" "Ask an organization owner to enable GitHub $($feature[0]) for $actualRepo."
     }
-    if ($state.immutableOidc) {
-        Add-Result PASS "github.oidc-subject" $state.oidcPrefix "immutable numeric owner/repository prefix" ""
-    } else {
-        Add-Result FAIL "github.oidc-subject" $(if ($state.oidcPrefix) { $state.oidcPrefix } else { "not configured" }) $(if ($state.expectedOidcPrefix) { $state.expectedOidcPrefix } else { "immutable numeric owner/repository prefix" }) "Run the immutable OIDC setup and repository preparation; do not substitute a name-only subject or client secret."
-    }
+}
+if ($state.immutableOidc) {
+    Add-Result PASS "github.oidc-subject" $state.oidcPrefix "immutable numeric owner/repository prefix" ""
+} else {
+    Add-Result FAIL "github.oidc-subject" $(if ($state.oidcPrefix) { $state.oidcPrefix } else { "not configured" }) $(if ($state.expectedOidcPrefix) { $state.expectedOidcPrefix } else { "immutable numeric owner/repository prefix" }) "Run the immutable OIDC setup and repository preparation; do not substitute a name-only subject or client secret."
 }
 foreach ($environment in $Environments) {
     if (@($state.environments) -contains $environment) {
@@ -205,10 +307,48 @@ foreach ($environment in $Environments) {
     }
 }
 
-if ($state.subscriptionId -eq $AzureSubscriptionId -and $state.resourceGroupAccessible) {
-    Add-Result PASS "azure.scope" $state.resourceGroupId "/subscriptions/$AzureSubscriptionId/resourceGroups/$AzureResourceGroup" ""
+if ($state.subscriptionActive -and $state.subscriptionMatchesExpected -and $state.resourceGroupAccessible) {
+    Add-Result PASS "azure.scope" "assigned subscription active; resource group accessible" "assigned subscription active and resource group readable" ""
 } else {
-    Add-Result FAIL "azure.scope" "subscription=$($state.subscriptionId); resource-group-access=$($state.resourceGroupAccessible)" "/subscriptions/$AzureSubscriptionId/resourceGroups/$AzureResourceGroup" "Select the assigned subscription and request Reader access to the assigned resource group."
+    Add-Result FAIL "azure.scope" "active=$($state.subscriptionActive); expected-selected=$($state.subscriptionMatchesExpected); resource-group-access=$($state.resourceGroupAccessible)" "assigned subscription active and resource group readable" "Run 'az account set --subscription <assigned-subscription>', confirm it is enabled, and request Reader access to the assigned resource group."
+}
+if ($state.foundryPermissionsReady) {
+    Add-Result PASS "foundry.permissions" "required deployment and RBAC assignment actions available" "resource-group deployment, Foundry account/project/model writes, and role assignment write" ""
+} else {
+    Add-Result FAIL "foundry.permissions" "required actions missing or unreadable" "resource-group deployment, Foundry account/project/model writes, and role assignment write" "Ask the subscription owner to grant the approved least-privilege workshop role at the assigned resource group."
+}
+if ($null -eq $state.foundryAgentAccessReady) {
+    Add-Result MANUAL "foundry.agent-access" "project not provisioned yet" "Foundry User, Foundry Owner, or Foundry Project Manager at the project scope after provisioning" "Re-run with -FoundryProjectResourceId after provisioning and before deploying the prompt agent."
+} elseif ($state.foundryAgentAccessReady) {
+    Add-Result PASS "foundry.agent-access" "signed-in user has a Foundry project data-plane role" "Foundry User, Foundry Owner, or Foundry Project Manager" ""
+} else {
+    Add-Result FAIL "foundry.agent-access" "required project data-plane role missing or unreadable" "Foundry User, Foundry Owner, or Foundry Project Manager" "Verify the scaffold assigned Foundry User to AZURE_PRINCIPAL_ID and re-run before deploying the prompt agent."
+}
+if ($state.cognitiveServicesProviderRegistered) {
+    Add-Result PASS "foundry.provider" "Microsoft.CognitiveServices registered" "Registered" ""
+} else {
+    Add-Result FAIL "foundry.provider" "not registered" "Microsoft.CognitiveServices registered" "Ask the subscription owner to register Microsoft.CognitiveServices, wait for Registered, and rerun readiness."
+}
+$combination = "$($state.foundryLocation)/$($state.foundryModelName)/$($state.foundryModelVersion)/$($state.foundryModelSku)"
+if ($state.foundryCombinationApproved) {
+    Add-Result PASS "foundry.location-model" $combination "an instructor-approved location/model/version/SKU combination" ""
+} else {
+    Add-Result FAIL "foundry.location-model" $combination "an instructor-approved location/model/version/SKU combination" "Use the approved Foundry settings exactly; do not silently switch region, model, version, or SKU."
+}
+if ($state.foundryModelAvailable) {
+    Add-Result PASS "foundry.model-availability" "available for the approved combination" "model and SKU listed in the approved location" ""
+} else {
+    Add-Result FAIL "foundry.model-availability" "unavailable or unreadable" "model and SKU listed in the approved location" "Record capability-unavailable and the Azure response; do not substitute another model or region."
+}
+if ($state.foundryQuotaAvailable) {
+    Add-Result PASS "foundry.model-quota" "nonzero remaining quota" "remaining quota greater than zero" ""
+} else {
+    Add-Result FAIL "foundry.model-quota" "zero, unavailable, or unreadable" "remaining quota greater than zero" "Request quota for the approved model/SKU or record capability-unavailable; do not provision."
+}
+if ($state.foundryNamesUniqueSafe) {
+    Add-Result PASS "foundry.naming" "team and environment names are distinct and safe" "lowercase team-specific names; environment starts with '<team>-'" ""
+} else {
+    Add-Result FAIL "foundry.naming" "team='$($state.foundryTeamName)'; environment='$($state.foundryEnvironmentName)'" "lowercase team-specific names; environment starts with '<team>-'" "Choose unique lowercase names using only letters, digits, and hyphens, for example '<team>-foundry'."
 }
 
 if ($state.cloudValidation) {
@@ -220,6 +360,12 @@ if ($state.cloudValidation) {
 }
 
 Add-Result MANUAL "copilot.app" "shell detection is not reliable" "Copilot App installed, signed in, and able to open the team repository" "Open Copilot App, sign in, and open the assigned repository; record this check manually."
+if ($state.foundryFallbackAvailable) {
+    Add-Result MANUAL "foundry.fallback" "organizer fallback declared; remote invocation still required" "fallback is never treated as local readiness success" "Record the fallback owner and cleanup boundary, then validate the real remote agent."
+} else {
+    Add-Result ADVISORY "foundry.fallback" "UNAVAILABLE" "organizer fallback may be unavailable" "If participant provisioning is blocked, record capability-unavailable and stop; never replace Foundry evidence with fixtures or mocks."
+}
+Add-Result MANUAL "foundry.cleanup" "no resources changed by readiness" "cleanup owner, environment, resource group, and planned azd down time recorded after provisioning" "Record cleanup evidence only. Run 'azd down' later from the Foundry project after human review; this readiness script never deletes resources."
 
 $document = [ordered]@{
     generatedAt = (Get-Date).ToUniversalTime().ToString("o")

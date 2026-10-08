@@ -3,21 +3,27 @@ import type {
   Product,
   ProductCategory,
   ProductListResponse,
+  ShoppingMissionRequest,
+  ValidatedMissionPlan,
 } from "../shared/contracts.js";
 
 export class ApiRequestError extends Error {
   constructor(
     message: string,
     readonly fieldErrors?: Record<string, string[]>,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiRequestError";
   }
 }
 
-async function request<T>(url: string): Promise<T> {
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("accept", "application/json");
   const response = await fetch(url, {
-    headers: { accept: "application/json" },
+    ...init,
+    headers,
   });
 
   let body: T | ApiError;
@@ -32,6 +38,7 @@ async function request<T>(url: string): Promise<T> {
     throw new ApiRequestError(
       apiError.error?.message ?? "Something went wrong. Try again.",
       apiError.error?.fieldErrors,
+      apiError.error?.code,
     );
   }
 
@@ -57,4 +64,23 @@ export const getProduct = async (id: string): Promise<Product> => {
     `/api/products/${encodeURIComponent(id)}`,
   );
   return result.product;
+};
+
+export const planShoppingMission = async (
+  mission: ShoppingMissionRequest,
+  signal?: AbortSignal,
+): Promise<ValidatedMissionPlan> => {
+  const result = await request<{ plan: ValidatedMissionPlan }>(
+    "/api/shopping-missions",
+    {
+      method: "POST",
+      body: JSON.stringify(mission),
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      signal,
+    },
+  );
+  return result.plan;
 };

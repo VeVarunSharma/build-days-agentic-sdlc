@@ -21,9 +21,20 @@ Complete the labs in order:
 | [1. Frame the outcome](docs/labs/01-outcome-and-plan.md) | Create the parent issue, review the Plan, and define four bounded child issues. |
 | [2. Implement bounded tasks](docs/labs/02-multi-agent-orchestration.md) | Stabilize foundations, then use isolated sessions and Fleet safely. |
 | [3. Integrate and prove](docs/labs/03-build-test-deploy.md) | Integrate the work and collect local, CI, and browser evidence. |
-| [4. Revise cloud-agent work](docs/labs/04-cloud-agent.md) | Delegate one narrow operational change and request a human revision. |
-| [5. Review security and automation](docs/labs/05-gh-aw.md) | Remediate the exercise and inspect a least-privilege GH-AW. |
+| [4. Run the Foundry mission planner](docs/labs/04-foundry-mission-planner.md) | Provision, deploy, invoke, and connect the Babazon prompt agent. |
+| [5. Remediate CodeQL](docs/labs/05-gh-aw.md) | Fix the deterministic security exercise; keep GH-AW as stretch work. |
 | [Wrap up](docs/labs/workshop-wrap-and-evidence.md) | Build the final evidence chain and handoff. |
+
+## Optional capstone
+
+After the core workshop, teams may build any useful agentic application in the
+[open agentic capstone](docs/labs/06-open-agentic-capstone.md). Extend Babazon
+or create `capstone/<app-name>/` with the existing TypeScript stack.
+
+The capstone is not issue-first. Teams use Copilot App Explore, Plan,
+Interactive, and Fleet deliberately, then deploy one Microsoft Foundry prompt
+agent and integrate it through the server into a real user-facing flow. See the
+[`capstone/` contract](capstone/README.md).
 
 ## Prompt-card pattern
 
@@ -49,9 +60,10 @@ npm run check
 Required endpoints are `/health`, `/ready`, `/api/products`, and
 `/api/products/:id`.
 
-Azure deployment is optional advanced work and is not required to complete the
-labs. Its technical configuration is documented in
-[`infra/README.md`](infra/README.md).
+Azure App Service deployment remains optional advanced work. Lab 4 uses the
+checked-in `foundry/` project; teams provision their own environment or use the
+organizer fallback only when provisioning is recorded as unavailable. App
+Service configuration is documented in [`infra/README.md`](infra/README.md).
 
 Babazon.com is fictional and uses an original visual identity. Do not copy
 Amazon branding, assets, page design, text, or trade dress.

@@ -8,7 +8,7 @@
     "defaultBranch": "main"
   },
   "provenanceVerified": true,
-  "cloudAgentBaselineGapVerified": true,
+  "foundryMissionPlannerBaselineVerified": true,
   "oidcCustomization": {
     "useImmutableSubject": true,
     "subClaimPrefix": "repo:octo-workshop@9876543/team-01@123456789"
@@ -43,7 +43,7 @@
   ],
   "issues": [
     {"number": 1, "title": "Babazon: product search and category filtering", "state": "open", "body": "<!-- workshop-feature-parent:v1 -->"},
-    {"number": 2, "title": "Cloud agent: prevent caching of health and readiness responses", "state": "open", "body": "<!-- cloud-agent-revision-exercise:v1 -->"}
+    {"number": 2, "title": "Foundry: run the bounded Babazon mission-planner lab", "state": "open", "body": "<!-- foundry-mission-planner-exercise:v1 -->"}
   ],
   "secretNames": [],
   "federatedCredentials": [

@@ -1,0 +1,33 @@
+[
+  {
+    "name": "valid-user-goal",
+    "input": {
+      "goal": "{{VALID_GOAL}}"
+    },
+    "assertions": [
+      "output matches the application schema",
+      "all identifiers come from authoritative context",
+      "all deterministic constraints are satisfied"
+    ]
+  },
+  {
+    "name": "constraint-violation",
+    "input": {
+      "goal": "{{GOAL_THAT_EXCEEDS_A_LIMIT}}"
+    },
+    "assertions": [
+      "output stays within the declared limit",
+      "limitations explain the unmet portion"
+    ]
+  },
+  {
+    "name": "unsupported-request",
+    "input": {
+      "goal": "{{UNSUPPORTED_GOAL}}"
+    },
+    "assertions": [
+      "no identifiers or capabilities are invented",
+      "limitations identify the unsupported request"
+    ]
+  }
+]

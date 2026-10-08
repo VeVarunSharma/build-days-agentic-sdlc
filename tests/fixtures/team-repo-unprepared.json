@@ -8,7 +8,7 @@
     "defaultBranch": "main"
   },
   "provenanceVerified": true,
-  "cloudAgentBaselineGapVerified": true,
+  "foundryMissionPlannerBaselineVerified": true,
   "oidcCustomization": {
     "useImmutableSubject": true,
     "subClaimPrefix": "repo:octo-workshop@9876543/team-01@123456789"

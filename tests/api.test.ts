@@ -4,9 +4,40 @@ import {
   InMemoryProductCatalogue,
   type ProductCatalogue,
 } from "../src/server/catalogue.js";
+import {
+  FoundryShoppingMissionPlanner,
+  ShoppingMissionPlannerUnavailableError,
+  type ShoppingMissionPlanner,
+} from "../src/server/foundry-missions.js";
 import type { Logger } from "../src/server/logger.js";
 
 const silentLogger: Logger = { log: () => undefined };
+const validMission = {
+  goal: "Create a productive desk setup",
+  budgetCents: 10_000,
+  maxItems: 3,
+};
+const validProposal = {
+  title: "Focused desk essentials",
+  summary: "A compact set for focused work.",
+  items: [
+    {
+      productId: "aurora-desk-lamp",
+      quantity: 1,
+      reason: "Adds adjustable task lighting.",
+    },
+    {
+      productId: "papertrail-notebook-set",
+      quantity: 1,
+      reason: "Supports planning and notes.",
+    },
+  ],
+  limitations: [],
+};
+
+const plannerReturning = (proposal: unknown): ShoppingMissionPlanner => ({
+  plan: () => Promise.resolve(proposal),
+});
 
 describe("product API", () => {
   it("exposes liveness and catalogue-backed readiness", async () => {
@@ -44,6 +75,151 @@ describe("product API", () => {
       total: 1,
       query: { q: "lamp", category: "office" },
       items: [{ id: "aurora-desk-lamp" }],
+    });
+  });
+
+  describe("shopping mission API", () => {
+    it("returns a canonically validated mission plan", async () => {
+      const plan = vi.fn(() => Promise.resolve(validProposal));
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner: { plan },
+        logger: silentLogger,
+      });
+
+      const response = await request(app)
+        .post("/api/shopping-missions")
+        .send(validMission)
+        .expect(200);
+
+      expect(response.body.plan).toMatchObject({
+        mission: validMission,
+        title: validProposal.title,
+        totalCents: 6598,
+        items: [
+          { product: { id: "aurora-desk-lamp" }, quantity: 1 },
+          { product: { id: "papertrail-notebook-set" }, quantity: 1 },
+        ],
+      });
+      expect(plan).toHaveBeenCalledWith(
+        validMission,
+        expect.any(Array),
+        expect.any(AbortSignal),
+      );
+    });
+
+    it("returns an explicit error when Foundry is unconfigured", async () => {
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner: new FoundryShoppingMissionPlanner({
+          endpoint: "",
+          agentName: "",
+        }),
+        logger: silentLogger,
+      });
+
+      await request(app)
+        .post("/api/shopping-missions")
+        .send(validMission)
+        .expect(503, {
+          error: {
+            code: "MISSION_PLANNER_UNCONFIGURED",
+            message: "Shopping mission planning is not configured.",
+          },
+        });
+    });
+
+    it("returns a safe error when Foundry is unavailable", async () => {
+      const missionPlanner: ShoppingMissionPlanner = {
+        plan: () => Promise.reject(new ShoppingMissionPlannerUnavailableError()),
+      };
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner,
+        logger: silentLogger,
+      });
+
+      const response = await request(app)
+        .post("/api/shopping-missions")
+        .send(validMission)
+        .expect(502);
+
+      expect(response.body.error.code).toBe("MISSION_PLANNER_UNAVAILABLE");
+      expect(response.text).not.toContain("FOUNDRY");
+    });
+
+    it("rejects invalid requests before invoking the planner", async () => {
+      const plan = vi.fn();
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner: { plan },
+        logger: silentLogger,
+      });
+
+      const response = await request(app)
+        .post("/api/shopping-missions")
+        .send({ goal: "", budgetCents: 0, maxItems: 0, extra: true })
+        .expect(400);
+
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(response.body.error.fieldErrors).toMatchObject({
+        goal: expect.any(Array),
+        budgetCents: expect.any(Array),
+        maxItems: expect.any(Array),
+      });
+      expect(plan).not.toHaveBeenCalled();
+    });
+
+    it("rejects proposals that fail canonical validation", async () => {
+      const proposal = {
+        ...validProposal,
+        items: [
+          {
+            productId: "missing-product",
+            quantity: 1,
+            reason: "This product does not exist.",
+          },
+        ],
+      };
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner: plannerReturning(proposal),
+        logger: silentLogger,
+      });
+
+      await request(app)
+        .post("/api/shopping-missions")
+        .send(validMission)
+        .expect(502, {
+          error: {
+            code: "MISSION_PROPOSAL_INVALID",
+            message: "The shopping mission response could not be validated.",
+          },
+        });
+    });
+
+    it("rate-limits missions without affecting health or readiness", async () => {
+      const app = createApp({
+        catalogue: new InMemoryProductCatalogue(),
+        missionPlanner: plannerReturning(validProposal),
+        logger: silentLogger,
+      });
+
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        await request(app)
+          .post("/api/shopping-missions")
+          .send(validMission)
+          .expect(200);
+      }
+
+      await request(app).post("/api/shopping-missions").send(validMission).expect(429, {
+        error: {
+          code: "MISSION_RATE_LIMITED",
+          message: "Too many shopping mission requests. Try again shortly.",
+        },
+      });
+      await request(app).get("/health").expect(200, { status: "healthy" });
+      await request(app).get("/ready").expect(200, { status: "ready" });
     });
   });
 

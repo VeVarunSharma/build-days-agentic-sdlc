@@ -61,6 +61,8 @@ flowchart LR
     Browser[React client] --> API[Express API]
     API --> Contract[Shared TypeScript contracts]
     API --> Catalogue[Read-only catalogue repository]
+    API --> Mission[Shopping mission boundary]
+    Mission --> Foundry[Foundry prompt agent]
     Catalogue --> Seed[Deterministic product seed data]
     Browser --> Cart[Client-side cart state]
     AppService[Optional Azure App Service] --> API
@@ -78,6 +80,8 @@ The starter supports:
 - deterministic product catalogue and seed data;
 - product search and category filtering;
 - product details required by the UI;
+- validated shopping-mission bundles produced by the configured Foundry prompt
+  agent;
 - client-side cart additions, removals, and quantity changes;
 - calculated item counts and subtotal;
 - simulated checkout confirmation;
@@ -96,7 +100,9 @@ Money is represented as integer minor units and formatted at the UI boundary.
 | `src/server/` | Express transport, catalogue boundary, logging, and operations |
 | `src/client/` | Accessible product discovery, cart, and simulated checkout |
 | `tests/` | Unit, API, structural, and Playwright verification |
-| `docs/labs/` | Five participant labs and the workshop wrap-up |
+| `foundry/` | Checked-in prompt-agent project, model infrastructure, instructions, and fixed scenarios |
+| `docs/labs/` | Five core labs, the workshop wrap-up, and one optional capstone |
+| `capstone/` | Open-domain TypeScript capstone contract and generic Foundry template |
 | `.github/` | CI, security, deployment, Copilot, issues, and review templates |
 | `infra/` | Optional generic Azure App Service and monitoring composition |
 
@@ -123,13 +129,27 @@ as unavailable rather than represented as equivalent local checks.
   reviewed.
 - Focused tests should return actionable results within two minutes.
 - Every lab has a happy path, recovery checkpoint, and optional stretch task.
-- Azure deployment remains advanced/instructor material and is not required to
-  complete the participant path.
+- Lab 4 provisions the checked-in Foundry prompt-agent project after explicit
+  human review. Permission, region, model, or quota failures stop the path; an
+  organizer environment is allowed only when participant provisioning is
+  recorded as unavailable.
+- Azure App Service deployment remains advanced/instructor material and is not
+  required to complete the participant path.
+- The optional capstone follows the core workshop. It may extend Babazon or
+  create `capstone/<app-name>/`, uses Copilot App Plan/Interactive/Fleet
+  receipts instead of the core issue graph, and requires a deployed Foundry
+  prompt agent integrated into a user-facing application.
 
 ## Final workshop outcome
 
 Each team leaves a GitHub-visible chain from a parent Babazon outcome issue,
 through a reviewed Plan and bounded task issues, to pull requests with
-deterministic CI and review evidence. Optional advanced work may add a protected
-Azure deployment and evidence review, but local application and browser QA
-completion does not depend on cloud access.
+deterministic CI and review evidence. Teams also connect the local Babazon
+application to a reviewed Foundry prompt agent and preserve provisioning,
+invocation, validation, and cleanup evidence. Optional advanced work may add a
+protected Azure App Service deployment.
+
+An optional capstone extends that learning to an open domain. The team chooses
+the problem, but keeps the existing TypeScript stack, validates all model output
+deterministically, invokes Foundry only through the server with Entra
+authentication, and preserves Plan, Fleet, test, demo, and cleanup evidence.

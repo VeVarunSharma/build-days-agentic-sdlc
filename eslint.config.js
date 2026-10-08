@@ -9,6 +9,8 @@ export default tseslint.config(
     ignores: [
       "dist",
       "coverage",
+      "playwright-report",
+      "test-results",
       "node_modules",
       "eslint.config.js",
       "vite.config.ts",

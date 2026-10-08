@@ -1,13 +1,27 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   fieldLimits,
   productCategories,
+  shoppingMissionRequestSchema,
   type CartLine,
   type Product,
   type ProductCategory,
+  type ValidatedMissionPlan,
 } from "../shared/contracts.js";
-import { getProduct, listProducts } from "./api.js";
 import {
+  ApiRequestError,
+  getProduct,
+  listProducts,
+  planShoppingMission,
+} from "./api.js";
+import {
+  addMissionPlanToCart,
   addToCart,
   cartItemCount,
   cartSubtotalCents,
@@ -27,6 +41,45 @@ const messageFor = (error: unknown): string =>
 const titleCase = (value: string): string =>
   `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 
+const dollarsToCents = (value: string): number | undefined => {
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
+  if (!match) return undefined;
+  const dollars = Number(match[1]);
+  const cents = Number((match[2] ?? "").padEnd(2, "0"));
+  if (!Number.isSafeInteger(dollars) || !Number.isSafeInteger(cents)) {
+    return undefined;
+  }
+  const total = dollars * 100 + cents;
+  return Number.isSafeInteger(total) ? total : undefined;
+};
+
+const missionErrorContent = (error: unknown): { title: string; message: string } => {
+  const code = error instanceof ApiRequestError ? error.code : undefined;
+  switch (code) {
+    case "MISSION_PLANNER_NOT_CONFIGURED":
+    case "MISSION_PLANNER_UNCONFIGURED":
+      return {
+        title: "Basket planner is not configured",
+        message: "The basket planner is not available in this environment yet.",
+      };
+    case "MISSION_PLANNER_UNAVAILABLE":
+      return {
+        title: "Basket planner is temporarily unavailable",
+        message: "Try building your basket again in a moment.",
+      };
+    case "MISSION_PROPOSAL_INVALID":
+      return {
+        title: "The proposed basket was invalid",
+        message: "No products were added. Try describing your goal another way.",
+      };
+    default:
+      return {
+        title: "We could not build your basket",
+        message: "Something went wrong. Try again.",
+      };
+  }
+};
+
 interface CheckoutFields {
   name: string;
   email: string;
@@ -34,6 +87,14 @@ interface CheckoutFields {
 }
 
 const emptyCheckout: CheckoutFields = { name: "", email: "", address: "" };
+
+interface MissionFields {
+  goal: string;
+  budget: string;
+  maxItems: string;
+}
+
+const emptyMission: MissionFields = { goal: "", budget: "", maxItems: "5" };
 
 export function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -53,6 +114,19 @@ export function App() {
     Partial<Record<keyof CheckoutFields, string>>
   >({});
   const [confirmation, setConfirmation] = useState("");
+  const [mission, setMission] = useState(emptyMission);
+  const [missionErrors, setMissionErrors] = useState<
+    Partial<Record<keyof MissionFields, string>>
+  >({});
+  const [missionLoading, setMissionLoading] = useState(false);
+  const [missionError, setMissionError] = useState<{
+    title: string;
+    message: string;
+  }>();
+  const [missionNotice, setMissionNotice] = useState("");
+  const [missionPlan, setMissionPlan] = useState<ValidatedMissionPlan>();
+  const missionRequest = useRef(0);
+  const missionAbort = useRef<AbortController | undefined>(undefined);
   const catalogueStatusId = useId();
 
   useEffect(() => {
@@ -76,6 +150,14 @@ export function App() {
       active = false;
     };
   }, [query, category, reload]);
+
+  useEffect(
+    () => () => {
+      missionRequest.current += 1;
+      missionAbort.current?.abort();
+    },
+    [],
+  );
 
   async function showDetails(product: Product) {
     setSelected(undefined);
@@ -123,6 +205,92 @@ export function App() {
     setCartNotice("");
   }
 
+  async function submitMission(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const budgetCents = dollarsToCents(mission.budget);
+    const maxItems = Number(mission.maxItems);
+    const parsed = shoppingMissionRequestSchema.safeParse({
+      goal: mission.goal,
+      budgetCents,
+      maxItems,
+    });
+    const errors: Partial<Record<keyof MissionFields, string>> = {};
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (field === "goal" && !errors.goal) errors.goal = issue.message;
+        if (field === "budgetCents" && !errors.budget) {
+          errors.budget =
+            budgetCents === undefined
+              ? "Enter a dollar amount with no more than two decimal places."
+              : issue.message;
+        }
+        if (field === "maxItems" && !errors.maxItems) {
+          errors.maxItems = issue.message;
+        }
+      }
+    }
+    if (budgetCents === undefined && !errors.budget) {
+      errors.budget = "Enter a dollar amount with no more than two decimal places.";
+    }
+    setMissionErrors(errors);
+    if (!parsed.success || Object.keys(errors).length > 0) return;
+
+    missionAbort.current?.abort();
+    const controller = new AbortController();
+    missionAbort.current = controller;
+    const requestId = missionRequest.current + 1;
+    missionRequest.current = requestId;
+    setMissionLoading(true);
+    setMissionError(undefined);
+    setMissionNotice("");
+    setMissionPlan(undefined);
+    try {
+      const plan = await planShoppingMission(parsed.data, controller.signal);
+      if (missionRequest.current === requestId && !controller.signal.aborted) {
+        setMissionPlan(plan);
+        setMissionNotice("Your basket plan is ready. Review it before adding it.");
+      }
+    } catch (error) {
+      if (
+        missionRequest.current === requestId &&
+        !controller.signal.aborted
+      ) {
+        setMissionError(missionErrorContent(error));
+      }
+    } finally {
+      if (missionRequest.current === requestId) {
+        setMissionLoading(false);
+      }
+    }
+  }
+
+  function cancelMission() {
+    missionRequest.current += 1;
+    missionAbort.current?.abort();
+    setMissionLoading(false);
+    setMissionError(undefined);
+    setMissionNotice("Basket planning cancelled.");
+  }
+
+  function addMissionBundle(plan: ValidatedMissionPlan) {
+    setCart((current) => {
+      const merged = addMissionPlanToCart(current, plan.items);
+      const requestedCount = plan.items.reduce(
+        (total, item) => total + item.quantity,
+        0,
+      );
+      const addedCount = cartItemCount(merged) - cartItemCount(current);
+      setCartNotice(
+        addedCount < requestedCount
+          ? `Bundle added with quantity limits applied. No product can exceed ${fieldLimits.quantity}.`
+          : `${plan.title} added to your cart.`,
+      );
+      return merged;
+    });
+    setConfirmation("");
+  }
+
   const itemCount = cartItemCount(cart);
   const subtotal = cartSubtotalCents(cart);
 
@@ -150,6 +318,28 @@ export function App() {
       </section>
 
       <main>
+        <MissionPlanner
+          fields={mission}
+          errors={missionErrors}
+          loading={missionLoading}
+          error={missionError}
+          notice={missionNotice}
+          plan={missionPlan}
+          onChange={(fields) => {
+            missionRequest.current += 1;
+            missionAbort.current?.abort();
+            setMission(fields);
+            setMissionErrors({});
+            setMissionPlan(undefined);
+            setMissionError(undefined);
+            setMissionNotice("");
+            setMissionLoading(false);
+          }}
+          onSubmit={(event) => void submitMission(event)}
+          onCancel={cancelMission}
+          onAddBundle={addMissionBundle}
+        />
+
         <section id="catalogue" className="catalogue" aria-labelledby="catalogue-title">
           <div className="section-heading">
             <div>
@@ -269,6 +459,210 @@ export function App() {
         />
       )}
     </>
+  );
+}
+
+interface MissionPlannerProps {
+  fields: MissionFields;
+  errors: Partial<Record<keyof MissionFields, string>>;
+  loading: boolean;
+  error?: { title: string; message: string };
+  notice: string;
+  plan?: ValidatedMissionPlan;
+  onChange: (fields: MissionFields) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
+  onAddBundle: (plan: ValidatedMissionPlan) => void;
+}
+
+function MissionPlanner({
+  fields,
+  errors,
+  loading,
+  error,
+  notice,
+  plan,
+  onChange,
+  onSubmit,
+  onCancel,
+  onAddBundle,
+}: MissionPlannerProps) {
+  return (
+    <section className="mission-planner" aria-labelledby="mission-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Plan a complete shop</p>
+          <h2 id="mission-title">Build my basket</h2>
+        </div>
+        <span>Review before adding</span>
+      </div>
+      <p>
+        Tell us what you need, your budget, and the most items you want. The
+        planner suggests a bundle without changing your cart.
+      </p>
+      <form className="mission-form" onSubmit={onSubmit} noValidate>
+        <MissionField
+          label="Shopping goal"
+          name="mission-goal"
+          value={fields.goal}
+          error={errors.goal}
+          maxLength={fieldLimits.missionGoal}
+          placeholder="Set up a comfortable home office"
+          onChange={(goal) => onChange({ ...fields, goal })}
+        />
+        <MissionField
+          label="Budget (dollars)"
+          name="mission-budget"
+          value={fields.budget}
+          error={errors.budget}
+          inputMode="decimal"
+          placeholder="150.00"
+          onChange={(budget) => onChange({ ...fields, budget })}
+        />
+        <MissionField
+          label="Maximum items"
+          name="mission-max-items"
+          value={fields.maxItems}
+          error={errors.maxItems}
+          type="number"
+          min={1}
+          max={fieldLimits.missionMaxItems}
+          step={1}
+          onChange={(maxItems) => onChange({ ...fields, maxItems })}
+        />
+        <div className="mission-actions">
+          <button type="submit" disabled={loading}>
+            {loading ? "Building basket…" : "Build my basket"}
+          </button>
+          {loading && (
+            <button type="button" className="secondary" onClick={onCancel}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+      <div className="mission-status" aria-live="polite">
+        {loading && <p role="status">Building a basket for your shopping goal…</p>}
+        {!loading && error && (
+          <div className="mission-error" role="alert">
+            <h3>{error.title}</h3>
+            <p>{error.message}</p>
+          </div>
+        )}
+        {!loading && !error && notice && <p role="status">{notice}</p>}
+      </div>
+      {plan && (
+        <MissionPlan plan={plan} onAddBundle={() => onAddBundle(plan)} />
+      )}
+    </section>
+  );
+}
+
+interface MissionFieldProps {
+  label: string;
+  name: string;
+  value: string;
+  error?: string;
+  type?: string;
+  inputMode?: "decimal";
+  placeholder?: string;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (value: string) => void;
+}
+
+function MissionField({
+  label,
+  name,
+  value,
+  error,
+  type = "text",
+  inputMode,
+  placeholder,
+  maxLength,
+  min,
+  max,
+  step,
+  onChange,
+}: MissionFieldProps) {
+  const errorId = `${name}-error`;
+  return (
+    <div className="mission-field">
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        name={name}
+        value={value}
+        type={type}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        min={min}
+        max={max}
+        step={step}
+        required
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {error && <span id={errorId} className="field-error">{error}</span>}
+    </div>
+  );
+}
+
+function MissionPlan({
+  plan,
+  onAddBundle,
+}: {
+  plan: ValidatedMissionPlan;
+  onAddBundle: () => void;
+}) {
+  return (
+    <section className="mission-plan" aria-labelledby="mission-plan-title">
+      <div>
+        <p className="eyebrow">Suggested bundle</p>
+        <h3 id="mission-plan-title">{plan.title}</h3>
+        <p>{plan.summary}</p>
+      </div>
+      <ul className="mission-items">
+        {plan.items.map((item) => (
+          <li key={item.product.id}>
+            <div
+              className="mission-product-art"
+              style={{ "--accent": item.product.accent } as React.CSSProperties}
+              aria-hidden="true"
+            >
+              {item.product.name.charAt(0)}
+            </div>
+            <div>
+              <h4>{item.product.name}</h4>
+              <p>{item.reason}</p>
+              <span>
+                {item.quantity} × {formatMoney(item.product.priceCents)}
+              </span>
+            </div>
+            <strong>{formatMoney(item.lineTotalCents)}</strong>
+          </li>
+        ))}
+      </ul>
+      <p className="mission-total">
+        <span>Bundle total</span>
+        <strong>{formatMoney(plan.totalCents)}</strong>
+      </p>
+      {plan.limitations.length > 0 && (
+        <div className="mission-limitations">
+          <h4>Things to know</h4>
+          <ul>
+            {plan.limitations.map((limitation) => (
+              <li key={limitation}>{limitation}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <button type="button" onClick={onAddBundle}>Add bundle to cart</button>
+    </section>
   );
 }
 

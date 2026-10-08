@@ -35,6 +35,24 @@ function preflightArgs(fixture: string, output: string) {
   ];
 }
 
+function bashPreflightArgs(fixture: string, output: string) {
+  return [
+    "./scripts/verify-env.sh",
+    "--repository",
+    "octo-workshop/team-01",
+    "--expected-revision",
+    revision,
+    "--azure-subscription-id",
+    subscription,
+    "--azure-resource-group",
+    "workshop-team01-rg",
+    "--fixture",
+    fixture,
+    "--json-output",
+    output,
+  ];
+}
+
 function writeDerivedFixture(name: string, update: (state: Record<string, unknown>) => void) {
   const state = JSON.parse(readFileSync(readyFixture, "utf8")) as Record<string, unknown>;
   update(state);
@@ -50,6 +68,10 @@ describe("environment preflight", () => {
     const report = JSON.parse(readFileSync(output, "utf8"));
     expect(report.summary.fail).toBe(0);
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
+    expect(report.results).toContainEqual(
+      expect.objectContaining({ id: "foundry.fallback", status: "ADVISORY", observed: "UNAVAILABLE" }),
+    );
+    expect(report.results).toContainEqual(expect.objectContaining({ id: "foundry.cleanup", status: "MANUAL" }));
   }, 90_000);
 
   it.each([
@@ -58,6 +80,14 @@ describe("environment preflight", () => {
     ["wrong revision", (state: Record<string, unknown>) => (state.revisionContainsExpected = false), "repository.template-revision"],
     ["missing configuration", (state: Record<string, unknown>) => (state.environments = ["workshop"]), "github.environment.workshop-validation"],
     ["cloud validation not run", (state: Record<string, unknown>) => (state.cloudValidation = false), "cloud.oidc-infrastructure"],
+    ["missing azd auth", (state: Record<string, unknown>) => (state.azdAuthenticated = false), "auth.azd"],
+    ["missing Foundry permissions", (state: Record<string, unknown>) => (state.foundryPermissionsReady = false), "foundry.permissions"],
+    ["missing Foundry agent access", (state: Record<string, unknown>) => (state.foundryAgentAccessReady = false), "foundry.agent-access"],
+    ["provider not registered", (state: Record<string, unknown>) => (state.cognitiveServicesProviderRegistered = false), "foundry.provider"],
+    ["unsupported region and model", (state: Record<string, unknown>) => (state.foundryCombinationApproved = false), "foundry.location-model"],
+    ["model unavailable", (state: Record<string, unknown>) => (state.foundryModelAvailable = false), "foundry.model-availability"],
+    ["zero quota", (state: Record<string, unknown>) => (state.foundryQuotaAvailable = false), "foundry.model-quota"],
+    ["unsafe names", (state: Record<string, unknown>) => (state.foundryNamesUniqueSafe = false), "foundry.naming"],
   ])("fails actionably for %s", (name, update, expectedId) => {
     const fixture = writeDerivedFixture(name.replaceAll(" ", "-"), update);
     const output = resolve(outputDirectory, `${name.replaceAll(" ", "-")}-report.json`);
@@ -73,26 +103,34 @@ describe("environment preflight", () => {
     const output = ".script-test-output/bash-ready.json";
     execFileSync(
       "bash",
-      [
-        "./scripts/verify-env.sh",
-        "--repository",
-        "octo-workshop/team-01",
-        "--expected-revision",
-        revision,
-        "--azure-subscription-id",
-        subscription,
-        "--azure-resource-group",
-        "workshop-team01-rg",
-        "--fixture",
-        "tests/fixtures/preflight-ready.json",
-        "--json-output",
-        output,
-      ],
+      bashPreflightArgs("tests/fixtures/preflight-ready.json", output),
       { cwd: root },
     );
     const report = JSON.parse(readFileSync(resolve(root, output), "utf8"));
     expect(report.summary.fail).toBe(0);
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
+    expect(report.results).toContainEqual(
+      expect.objectContaining({ id: "foundry.fallback", status: "ADVISORY", observed: "UNAVAILABLE" }),
+    );
+  }, 90_000);
+
+  it.each([
+    ["missing azd auth", (state: Record<string, unknown>) => (state.azdAuthenticated = false), "auth.azd"],
+    ["missing permissions", (state: Record<string, unknown>) => (state.foundryPermissionsReady = false), "foundry.permissions"],
+    ["missing agent access", (state: Record<string, unknown>) => (state.foundryAgentAccessReady = false), "foundry.agent-access"],
+    ["provider unregistered", (state: Record<string, unknown>) => (state.cognitiveServicesProviderRegistered = false), "foundry.provider"],
+    ["unsupported region/model", (state: Record<string, unknown>) => (state.foundryCombinationApproved = false), "foundry.location-model"],
+    ["zero quota", (state: Record<string, unknown>) => (state.foundryQuotaAvailable = false), "foundry.model-quota"],
+  ])("provides actionable Bash failure for %s", (name, update, expectedId) => {
+    const fixture = writeDerivedFixture(`bash-${name.replaceAll(" ", "-").replace("/", "-")}`, update);
+    const bashFixture = fixture.replace(`${root}\\`, "").replaceAll("\\", "/");
+    const output = `.script-test-output/bash-${name.replaceAll(" ", "-").replace("/", "-")}.json`;
+    const run = spawnSync("bash", bashPreflightArgs(bashFixture, output), { cwd: root, encoding: "utf8" });
+    expect(run.status).toBe(1);
+    const report = JSON.parse(readFileSync(resolve(root, output), "utf8"));
+    expect(report.results).toContainEqual(
+      expect.objectContaining({ id: expectedId, status: "FAIL", remediation: expect.any(String) }),
+    );
   }, 90_000);
 });
 
@@ -145,6 +183,9 @@ describe("team repository preparation", () => {
     expect(report.operations).toContainEqual(
       expect.objectContaining({ action: "CREATE", resource: "issue:Babazon: product search and category filtering" }),
     );
+    expect(report.operations).toContainEqual(
+      expect.objectContaining({ action: "CREATE", resource: "issue:Foundry: run the bounded Babazon mission-planner lab" }),
+    );
   }, 20_000);
 
   it("is stable on consecutive prepared-state runs", () => {
@@ -184,14 +225,14 @@ describe("team repository preparation", () => {
     expect(`${run.stdout}${run.stderr}`).toContain("OIDC readiness failed");
   }, 20_000);
 
-  it("rejects a template that already completed the cloud-agent exercise", () => {
-    const fixture = writeDerivedFixture("completed-cloud-agent-gap", (state) => {
+  it("rejects a template without the reviewed Foundry mission-planner baseline", () => {
+    const fixture = writeDerivedFixture("missing-foundry-baseline", (state) => {
       Object.assign(state, JSON.parse(readFileSync(unpreparedFixture, "utf8")));
-      state.cloudAgentBaselineGapVerified = false;
+      state.foundryMissionPlannerBaselineVerified = false;
     });
     const run = spawnSync(
       "pwsh",
-      preparationArgs(fixture, resolve(outputDirectory, "completed-cloud-agent-gap-report.json")),
+      preparationArgs(fixture, resolve(outputDirectory, "missing-foundry-baseline-report.json")),
       { cwd: root, encoding: "utf8" },
     );
     expect(run.status).not.toBe(0);
@@ -199,7 +240,7 @@ describe("team repository preparation", () => {
       .replace(/\s*\|\s*/g, " ")
       .replace(/\s+/g, " ");
     expect(normalizedOutput).toContain(
-      "already contains the Lab 4 no-store cache policy",
+      "does not contain the reviewed Foundry mission-planner",
     );
   }, 20_000);
 });

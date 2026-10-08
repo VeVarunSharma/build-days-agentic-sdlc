@@ -1,0 +1,8 @@
+.azure/
+.env
+.env.*
+agent/instructions.generated.md
+evals/results/
+evals/*.local.json
+endpoints/
+infra/main.json

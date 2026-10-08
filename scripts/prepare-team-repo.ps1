@@ -51,12 +51,12 @@ function Get-LiveState {
     $repo = Invoke-GhJson @("api", "repos/$target")
     $templateCommit = Invoke-GhJson @("api", "repos/$TemplateRepository/commits/$TemplateRevision")
     $targetCommit = Invoke-GhJson @("api", "repos/$target/commits/$($repo.default_branch)")
-    $serverSourcePayload = Invoke-GhJson @(
+    $foundryParametersPayload = Invoke-GhJson @(
         "api",
-        "repos/$TemplateRepository/contents/src/server/app.ts?ref=$TemplateRevision"
+        "repos/$TemplateRepository/contents/foundry/infra/main.parameters.json?ref=$TemplateRevision"
     )
-    $serverSource = [Text.Encoding]::UTF8.GetString(
-        [Convert]::FromBase64String(([string]$serverSourcePayload.content -replace "\s", ""))
+    $foundryParameters = [Text.Encoding]::UTF8.GetString(
+        [Convert]::FromBase64String(([string]$foundryParametersPayload.content -replace "\s", ""))
     )
     $actions = try { Invoke-GhJson @("api", "repos/$target/actions/permissions") } catch { [pscustomobject]@{ enabled = $false } }
     $environmentData = try { Invoke-GhJson @("api", "--paginate", "repos/$target/environments") } catch { [pscustomobject]@{ environments = @() } }
@@ -95,7 +95,11 @@ function Get-LiveState {
             defaultBranch = [string]$repo.default_branch
         }
         provenanceVerified = [string]$templateCommit.commit.tree.sha -eq [string]$targetCommit.commit.tree.sha
-        cloudAgentBaselineGapVerified = $serverSource -notmatch 'no-store'
+        foundryMissionPlannerBaselineVerified = (
+            $foundryParameters -match 'AZURE_LOCATION' -and
+            $foundryParameters -match 'gpt-4\.1-mini' -and
+            $foundryParameters -match 'GlobalStandard'
+        )
         environments = @($environmentData.environments.name)
         variables = @($variableData.variables | ForEach-Object { [ordered]@{ name = $_.name; value = $_.value } })
         environmentVariables = $environmentVariables
@@ -131,8 +135,8 @@ if ($state.repository.fullName -ne $target) {
 if (-not $state.provenanceVerified) {
     throw "Template provenance failed: $target's default-branch tree does not match $TemplateRepository at $TemplateRevision. No changes were made."
 }
-if (-not $state.cloudAgentBaselineGapVerified) {
-    throw "The selected template revision already contains the Lab 4 no-store cache policy. Seed a newly verified feature-independent issue instead of creating completed work."
+if (-not $state.foundryMissionPlannerBaselineVerified) {
+    throw "The selected template revision does not contain the reviewed Foundry mission-planner location, model, and SKU parameters. No issues were seeded."
 }
 if (-not $state.repository.id -or -not $state.repository.ownerId) {
     throw "GitHub did not return numeric repository and owner IDs. Immutable OIDC trust cannot be verified."
@@ -199,33 +203,36 @@ This issue seeds the work boundary; it does not contain the participant solution
 "@
     },
     [ordered]@{
-        marker = "<!-- cloud-agent-revision-exercise:v1 -->"
-        title = "Cloud agent: prevent caching of health and readiness responses"
-        labels = @("workshop", "agent-ready", "instructor-seeded", "human-revision-required")
+        marker = "<!-- foundry-mission-planner-exercise:v1 -->"
+        title = "Foundry: run the bounded Babazon mission-planner lab"
+        labels = @("workshop", "agent-ready", "instructor-seeded")
         body = @"
-<!-- cloud-agent-revision-exercise:v1 -->
+<!-- foundry-mission-planner-exercise:v1 -->
 ## Outcome
 
-Add ``Cache-Control: no-store`` to the existing ``/health`` and ``/ready``
-JSON responses.
+Provision and validate the checked-in Babazon Foundry mission planner without
+changing the reviewed infrastructure defaults.
 
 ## Contract
 
 - Link this issue and the parent Babazon outcome issue.
-- Own only ``src/server/app.ts`` and ``tests/api.test.ts``.
-- Do not change ``src/client/**``, ``src/shared/**``, ``infra/**``,
-  ``.github/workflows/**``, security fixtures, or participant feature code.
-- Preserve the current response bodies and status codes.
-- Cover ``GET /health`` and both the ``200`` and ``503`` ``GET /ready`` paths.
-- Run ``npm test -- tests/api.test.ts``.
-- Link the branch, commit, test result, and pull request here.
-- Include ``<!-- cloud-agent-revision-exercise:v1 -->`` in the pull-request
-  body so workshop structural checks can identify this instructor-seeded
-  exercise.
-
-A human reviewer must request a focused ``HEAD /health`` regression assertion
-before approval. The revision must prove the no-store header is present and the
-response has no body.
+- Own only ignored local ``foundry/.azure/**`` state and evidence posted to
+  this issue. Do not modify tracked repository files.
+- Run readiness first. Stop on missing ``azd`` or Azure authentication,
+  permissions, provider registration, unsupported location/model/SKU,
+  unavailable model, zero quota, or unsafe/non-unique names.
+- Review the subscription, location, names, model version, SKU, capacity,
+  expected cost, cleanup owner, and planned cleanup time before provisioning.
+- After approval, provision from ``foundry/``, deploy
+  ``babazon-mission-planner``, invoke ``smoke-reading-nook``, and validate the
+  real response and the local UI/cart journey.
+- Never commit endpoints, tenant/subscription IDs, credentials, generated
+  instructions, or environment values.
+- If provisioning is blocked, record ``capability-unavailable``. An organizer
+  fallback is unavailable unless explicitly supplied; mocks and fixtures are
+  not successful Foundry evidence.
+- Record cleanup guidance and the planned ``azd down`` time. Do not delete
+  resources as part of readiness or evidence collection.
 "@
     }
 )
@@ -318,7 +325,7 @@ $report = [ordered]@{
     teamSize = $TeamSize
     repositoryId = [string]$state.repository.id
     repositoryOwnerId = [string]$state.repository.ownerId
-    azureScope = "/subscriptions/$AzureSubscriptionId/resourceGroups/$AzureResourceGroup"
+    azureScope = "assigned subscription and resource group (identifiers intentionally omitted)"
     environments = $Environments
     operations = $operations
 }

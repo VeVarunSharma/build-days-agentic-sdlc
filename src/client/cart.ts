@@ -2,6 +2,7 @@ import {
   fieldLimits,
   type CartLine,
   type Product,
+  type ValidatedMissionPlanLine,
 } from "../shared/contracts.js";
 
 export const addToCart = (cart: CartLine[], product: Product): CartLine[] => {
@@ -43,3 +44,15 @@ export const cartSubtotalCents = (cart: CartLine[]): number =>
     (total, line) => total + line.product.priceCents * line.quantity,
     0,
   );
+
+export const addMissionPlanToCart = (
+  cart: CartLine[],
+  items: ValidatedMissionPlanLine[],
+): CartLine[] =>
+  items.reduce((nextCart, item) => {
+    let merged = nextCart;
+    for (let count = 0; count < item.quantity; count += 1) {
+      merged = addToCart(merged, item.product);
+    }
+    return merged;
+  }, cart);

@@ -4,7 +4,10 @@ dist/
 .env.*
 !.env.example
 coverage/
+playwright-report/
+test-results/
 infra/main.json
+infra/*.parameters.json
 *.log
 .DS_Store
 Thumbs.db
