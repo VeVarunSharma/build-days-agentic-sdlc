@@ -22,7 +22,7 @@ param(
     [ValidateCount(1, 100)]
     [string[]]$ParticipantLogins,
 
-    [string]$WorkingDirectory = (Join-Path ([IO.Path]::GetTempPath()) 'workshop-checkpoint-publish'),
+    [string]$WorkingDirectory = (Join-Path (Get-Location) '.workshop-checkpoint-publish'),
 
     [string]$EvidencePath,
 

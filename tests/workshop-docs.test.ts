@@ -1,27 +1,44 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
-
 const participantLabs = [
-  "docs/labs/01-openspec-and-harness.md",
+  "docs/labs/01-outcome-and-plan.md",
   "docs/labs/02-multi-agent-orchestration.md",
   "docs/labs/03-build-test-deploy.md",
   "docs/labs/04-cloud-agent.md",
   "docs/labs/05-gh-aw.md",
   "docs/labs/workshop-wrap-and-evidence.md",
-  "docs/labs/06-net-new-app-capstone.md",
+];
+const ownedTextFiles = [
+  "README.md",
+  "AGENTS.md",
+  "DESIGN.md",
+  ...participantLabs,
+  ".github/copilot-instructions.md",
+  ".github/skills/change-evidence/SKILL.md",
 ];
 
-function read(relativePath: string) {
-  return readFileSync(resolve(root, relativePath), "utf8");
+const read = (path: string) => readFileSync(resolve(root, path), "utf8");
+
+function listMarkdownFiles(directory: string, prefix = ""): string[] {
+  return readdirSync(resolve(root, directory, prefix), { withFileTypes: true })
+    .flatMap((entry) => {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) return listMarkdownFiles(directory, relative);
+      return entry.name.endsWith(".md") ? [`${directory}/${relative}`] : [];
+    })
+    .sort();
 }
 
-describe("participant lab documentation", () => {
+describe("issue-first workshop documentation", () => {
+  it("keeps only the five participant labs and wrap-up under docs", () => {
+    expect(listMarkdownFiles("docs")).toEqual([...participantLabs].sort());
+  });
+
   it.each(participantLabs)("%s is App-first and independently runnable", (path) => {
     const content = read(path);
-
     for (const section of [
       "## Outcome",
       "## Prerequisites",
@@ -32,94 +49,66 @@ describe("participant lab documentation", () => {
     ]) {
       expect(content, `${path} is missing ${section}`).toContain(section);
     }
-
     for (const field of ["**Use:**", "**Attach:**", "**Prompt:**", "**Expect:**", "**Decide:**"]) {
-      expect(content, `${path} is missing prompt-card field ${field}`).toContain(field);
+      expect(content, `${path} is missing ${field}`).toContain(field);
     }
-
-    expect(content, `${path} must not contain participant command fences`).not.toContain("```");
   });
 
-  it("teaches Plan, Fleet, sessions, steering, and Autopilot in Lab 2", () => {
-    const content = read("docs/labs/02-multi-agent-orchestration.md");
+  it("uses one parent outcome, a reviewed Plan, and four bounded children", () => {
+    const content = `${read("README.md")}\n${read("docs/labs/01-outcome-and-plan.md")}`;
+    expect(content).toContain("product search and category");
+    expect(content).toContain("reviewed Copilot App Plan");
+    expect(content).toMatch(/exactly four|four bounded child/i);
+    expect(content).toContain("owned paths");
+    expect(content).toContain("prohibited paths");
+    expect(content).toContain("dependencies");
+  });
 
-    for (const concept of ["Plan mode", "Fleet", "session", "Autopilot", "Pause. Re-read"]) {
+  it("teaches Plan, Fleet, sessions, steering, and Autopilot", () => {
+    const content = read("docs/labs/02-multi-agent-orchestration.md");
+    for (const concept of ["Interactive mode", "Fleet", "session", "Autopilot", "Pause. Re-read"]) {
       expect(content).toContain(concept);
     }
   });
 
-  it("uses the pinned GH-AW creation guide and one safe output in Lab 5", () => {
-    const content = read("docs/labs/05-gh-aw.md");
-    const normalized = content.replace(/\s+/g, " ");
-
-    expect(content).toContain("https://raw.githubusercontent.com/github/gh-aw/v0.88.8/create.md");
-    expect(content).toContain("https://github.github.com/gh-aw/");
-    expect(content).toContain(
-      "https://github.blog/changelog/2026-06-11-github-agentic-workflows-is-now-in-public-preview/",
-    );
-    expect(normalized).toContain("exactly one safe output");
-    expect(normalized).toContain("installing or converging the extension to that version when necessary");
-    expect(normalized).toContain("Do not use `main` or `latest`");
-  });
-
-  it("requires the specification pull request to merge before implementation", () => {
-    expect(read("docs/labs/01-openspec-and-harness.md").replace(/\s+/g, " ")).toContain(
-      "approves, and merges the specification pull request",
-    );
-    expect(read("docs/labs/02-multi-agent-orchestration.md")).toContain(
-      "specification pull request is approved and merged",
-    );
-  });
-
-  it("keeps seeded exercise policy exceptions marker and path constrained", () => {
-    const policy = read(".github/workflows/spec-pr-policy.yml");
-
-    expect(policy).toContain("<!-- cloud-agent-revision-exercise:v1 -->");
-    expect(policy).toContain("src/server/app.ts");
-    expect(policy).toContain("tests/api.test.ts");
-    expect(policy).toContain("<!-- workshop-lab5-codeql-exercise -->");
-    expect(policy).toContain("workshop/lab5-codeql-exercise");
-    expect(policy).toContain("tests/security-exercise/unsafe-command.ts");
-
-    expect(read("scripts/prepare-team-repo.ps1")).toContain(
-      "<!-- cloud-agent-revision-exercise:v1 -->",
-    );
-    expect(read("scripts/seed-security-exercise.ps1")).toContain(
-      "<!-- workshop-lab5-codeql-exercise -->",
-    );
-  });
-
-  it("publishes the curated workshop reference set", () => {
-    const resources = read("docs/resources.md");
-
-    for (const url of [
-      "https://github.github.com/gh-aw/",
-      "https://github.blog/changelog/2026-06-11-github-agentic-workflows-is-now-in-public-preview/",
-      "https://openspec.dev/",
-      "https://github.com/github/spec-kit",
-      "https://github.blog/ai-and-ml/github-copilot/how-to-bring-your-software-delivery-workflow-into-github-with-agent-apps/",
-      "https://agenticsdlc.github.io/agentic-sdlc-ops/",
-      "https://danielmeppiel.github.io/agentic-sdlc-handbook/",
-    ]) {
-      expect(resources).toContain(url);
+  it("keeps Azure optional and verifies the Babazon live surface", () => {
+    const content = `${read("README.md")}\n${read("docs/labs/03-build-test-deploy.md")}`;
+    expect(content).toMatch(/optional|advanced/i);
+    for (const endpoint of ["/health", "/ready", "/api/products"]) {
+      expect(content).toContain(endpoint);
     }
-
-    expect(resources).toContain("## Canonical hands-on references");
-    expect(resources).toContain("recommended further reading");
-    expect(resources).toContain("not additional required frameworks");
-    expect(read("README.md")).toContain("docs/resources.md");
-    expect(read("docs/README.md")).toContain("resources.md");
+    expect(content).toContain("search");
+    expect(content).toContain("category");
+    expect(content).toContain("application page");
   });
 
-  it("keeps Spec Kit comparison-only in the participant path", () => {
-    const lab = read("docs/labs/01-openspec-and-harness.md");
-    const comparison = read("docs/comparisons/spec-kit-to-openspec.md");
+  it("links every participant lab directly from the root README", () => {
+    const readme = read("README.md");
+    for (const path of participantLabs) {
+      expect(readme, `README.md does not link ${path}`).toContain(`](${path})`);
+    }
+  });
 
-    expect(lab).toContain("OpenSpec is the canonical hands-on SDD path");
-    expect(lab).toContain("../comparisons/spec-kit-to-openspec.md");
-    expect(lab).not.toContain("https://github.com/github/spec-kit");
-    expect(comparison).toContain("https://github.com/github/spec-kit");
-    expect(comparison).toContain("Do not install Spec Kit");
-    expect(comparison).toContain("add `.specify/`");
+  it("contains no legacy execution path or obsolete product language", () => {
+    const forbidden = /\b(?:openspec|opsx|feedback|votes?|voting)\b|specification pull request|table storage/i;
+    for (const path of ownedTextFiles) {
+      expect(read(path), `${path} contains legacy terminology`).not.toMatch(forbidden);
+    }
+  });
+
+  it("publishes only links to existing local Markdown files", () => {
+    for (const path of ownedTextFiles.filter((file) => file.endsWith(".md"))) {
+      for (const match of read(path).matchAll(/\[[^\]]+\]\((?!https?:|#)([^)#]+)(?:#[^)]+)?\)/g)) {
+        const target = resolve(root, dirname(path), match[1]!);
+        expect(existsSync(target), `${path} links to missing ${match[1]}`).toBe(true);
+      }
+    }
+  });
+
+  it("pins GH-AW and permits exactly one safe output", () => {
+    const lab = read("docs/labs/05-gh-aw.md");
+    expect(lab).toContain("v0.89.21");
+    expect(lab).toContain("exactly one safe output");
+    expect(read(".github/workflows/issue-clarifier.md")).toContain("max: 1");
   });
 });

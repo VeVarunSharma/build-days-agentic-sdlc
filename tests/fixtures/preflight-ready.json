@@ -5,7 +5,6 @@
     "npm": "10.8.2",
     "gh": "gh version 2.80.0",
     "az": "{\"azure-cli\":\"2.77.0\"}",
-    "openspec": "1.0.0",
     "copilot": "0.0.400"
   },
   "ghAuthenticated": true,

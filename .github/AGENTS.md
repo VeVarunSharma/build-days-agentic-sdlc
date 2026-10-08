@@ -10,4 +10,5 @@ This directory owns CI, deployment, security scanning, Copilot customization, is
 - Commit both GH-AW Markdown source and its generated lock workflow.
 - Keep participant-triggered workflows bounded with manual, label, or path filters where practical.
 - Never expose secrets, tokens, or untrusted issue/PR content to unsafe shell interpolation.
-
+- Preserve parent issue -> reviewed Plan -> child issue -> PR -> evidence
+  traceability.

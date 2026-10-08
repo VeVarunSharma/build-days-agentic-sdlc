@@ -44,7 +44,7 @@ function Invoke-JsonCommand {
 
 function Get-LiveState {
     $state = [ordered]@{ tools = @{} }
-    foreach ($tool in @("git", "node", "npm", "gh", "az", "openspec", "copilot")) {
+    foreach ($tool in @("git", "node", "npm", "gh", "az", "copilot")) {
         $command = Get-Command $tool -ErrorAction SilentlyContinue
         if (-not $command) {
             $state.tools[$tool] = $null
@@ -133,7 +133,6 @@ $toolRemediation = @{
     npm = "Install npm with the supported Node.js distribution."
     gh = "Install GitHub CLI, then run 'gh auth login'."
     az = "Install Azure CLI, then run 'az login'."
-    openspec = "Install the OpenSpec CLI used by this repository."
     copilot = "Install GitHub Copilot CLI and confirm 'copilot --version'."
 }
 foreach ($tool in $toolRemediation.Keys) {

@@ -8,53 +8,22 @@ param teamIdentifier string
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
-@description('App Service plan SKU. B1 keeps the workshop inexpensive while supporting Always On.')
+@description('App Service plan SKU.')
 param appServicePlanSku string = 'B1'
-
-@description('Azure Table Storage table used by the feedback application.')
-@minLength(3)
-@maxLength(63)
-param feedbackTableName string = 'Feedback'
 
 @description('Additional tags applied to every resource.')
 param tags object = {}
 
 var uniqueSuffix = uniqueString(resourceGroup().id, teamIdentifier)
-var storageAccountName = 'st${uniqueSuffix}'
 var logAnalyticsName = 'log-workshop-${uniqueSuffix}'
 var applicationInsightsName = 'appi-workshop-${uniqueSuffix}'
 var appServicePlanName = 'plan-workshop-${uniqueSuffix}'
 var webAppName = 'app-workshop-${uniqueSuffix}'
 var commonTags = union(tags, {
-  workload: 'agentic-sdlc-workshop'
+  workload: 'babazon-workshop'
   team: teamIdentifier
   managedBy: 'bicep'
 })
-
-module storage 'br/public:avm/res/storage/storage-account:0.33.1' = {
-  name: 'storage'
-  params: {
-    name: storageAccountName
-    location: location
-    skuName: 'Standard_LRS'
-    kind: 'StorageV2'
-    allowBlobPublicAccess: false
-    allowCrossTenantReplication: false
-    allowSharedKeyAccess: false
-    defaultToOAuthAuthentication: true
-    minimumTlsVersion: 'TLS1_2'
-    publicNetworkAccess: 'Enabled'
-    supportsHttpsTrafficOnly: true
-    tableServices: {
-      tables: [
-        {
-          name: feedbackTableName
-        }
-      ]
-    }
-    tags: commonTags
-  }
-}
 
 module logAnalytics 'br/public:avm/res/operational-insights/workspace:0.16.1' = {
   name: 'log-analytics'
@@ -107,13 +76,11 @@ module webApp 'br/public:avm/res/web/site:0.24.0' = {
     serverFarmResourceId: appServicePlan.outputs.resourceId
     httpsOnly: true
     clientAffinityEnabled: false
-    managedIdentities: {
-      systemAssigned: true
-    }
     publicNetworkAccess: 'Enabled'
     siteConfig: {
       alwaysOn: true
       ftpsState: 'Disabled'
+      healthCheckPath: '/health'
       http20Enabled: true
       linuxFxVersion: 'NODE|22-lts'
       minTlsVersion: '1.2'
@@ -132,9 +99,6 @@ module webApp 'br/public:avm/res/web/site:0.24.0' = {
           WEBSITE_NODE_DEFAULT_VERSION: '~22'
           SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
           ENABLE_ORYX_BUILD: 'true'
-          STORAGE_BACKEND: 'azure'
-          AZURE_STORAGE_ACCOUNT_URL: 'https://${storage.outputs.name}.table.${environment().suffixes.storage}'
-          AZURE_STORAGE_TABLE_NAME: feedbackTableName
         }
       }
     ]
@@ -158,26 +122,6 @@ module webApp 'br/public:avm/res/web/site:0.24.0' = {
   }
 }
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2025-06-01' existing = {
-  name: storageAccountName
-}
-
-var storageTableDataContributorRoleDefinitionId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
-)
-
-resource storageTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, webAppName, storageTableDataContributorRoleDefinitionId)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: storageTableDataContributorRoleDefinitionId
-    principalId: webApp.outputs.systemAssignedMIPrincipalId!
-    principalType: 'ServicePrincipal'
-    description: 'Allows the workshop web app to read and write feedback in Azure Table Storage.'
-  }
-}
-
 @description('Name of the deployed App Service web app.')
 output appName string = webApp.outputs.name
 
@@ -196,10 +140,4 @@ output monitoring object = {
   applicationInsightsResourceId: applicationInsights.outputs.resourceId
   logAnalyticsWorkspaceName: logAnalytics.outputs.name
   logAnalyticsWorkspaceResourceId: logAnalytics.outputs.resourceId
-}
-
-@description('Storage details required by the application.')
-output storage object = {
-  accountName: storage.outputs.name
-  tableName: feedbackTableName
 }

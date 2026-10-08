@@ -15,7 +15,7 @@
   },
   "environments": ["workshop-validation", "workshop"],
   "variables": [
-    {"name": "FEATURE_BRIEF", "value": "docs/features/feedback-status.md"},
+    {"name": "WORKSHOP_OUTCOME", "value": "Babazon product search and category filtering"},
     {"name": "GITHUB_REPOSITORY_ID", "value": "123456789"},
     {"name": "GITHUB_REPOSITORY_OWNER_ID", "value": "9876543"}
   ],
@@ -42,7 +42,7 @@
     {"name": "human-revision-required", "color": "d93f0b", "description": "Requires a human-requested revision before merge"}
   ],
   "issues": [
-    {"number": 1, "title": "Workshop feature: docs/features/feedback-status.md", "state": "open", "body": "<!-- workshop-feature-parent:v1 -->"},
+    {"number": 1, "title": "Babazon: product search and category filtering", "state": "open", "body": "<!-- workshop-feature-parent:v1 -->"},
     {"number": 2, "title": "Cloud agent: prevent caching of health and readiness responses", "state": "open", "body": "<!-- cloud-agent-revision-exercise:v1 -->"}
   ],
   "secretNames": [],

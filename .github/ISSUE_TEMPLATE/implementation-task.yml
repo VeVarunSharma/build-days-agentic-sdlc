@@ -6,8 +6,8 @@ body:
   - type: input
     id: parent
     attributes:
-      label: Parent change or issue
-      description: Link the approved OpenSpec change and parent GitHub issue.
+      label: Parent outcome issue
+      description: Link the parent issue containing acceptance criteria and Plan review.
     validations:
       required: true
   - type: textarea
@@ -36,6 +36,15 @@ body:
       description: Link blocking tasks or write "None".
     validations:
       required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Ready for implementation
+      options:
+        - label: Shared foundations are stable and dependencies are complete.
+          required: true
+        - label: Owned and prohibited paths do not overlap active tasks.
+          required: true
   - type: textarea
     id: validation
     attributes:
@@ -48,4 +57,3 @@ body:
     attributes:
       label: Execution receipt
       description: On completion, add the branch, commit or PR, commands run, results, and remaining blockers.
-

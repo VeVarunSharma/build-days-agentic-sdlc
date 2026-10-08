@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+$")][string]$Repository,
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$TemplateRepository,
     [Parameter(Mandatory)][ValidatePattern("^[0-9a-fA-F]{7,40}$")][string]$TemplateRevision,
-    [Parameter(Mandatory)][string]$FeatureBrief,
+    [string]$Outcome = "Babazon product search and category filtering",
     [Parameter(Mandatory)][ValidateRange(2, 3)][int]$TeamSize,
     [Parameter(Mandatory)][ValidatePattern("^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$")][string]$TeamId,
     [Parameter(Mandatory)][string]$AzureSubscriptionId,
@@ -122,9 +122,6 @@ function Test-ImmutableCredential {
 if ($FixturePath) {
     $state = Get-Content -Raw $FixturePath | ConvertFrom-Json -AsHashtable
 } else {
-    if (-not (Test-Path -LiteralPath $FeatureBrief -PathType Leaf)) {
-        throw "Feature brief '$FeatureBrief' does not exist in the current template checkout."
-    }
     $state = Get-LiveState
 }
 
@@ -167,7 +164,7 @@ $desiredEnvironmentVariables = [ordered]@{
     AZURE_RESOURCE_GROUP = $AzureResourceGroup
 }
 $desiredRepositoryVariables = [ordered]@{
-    FEATURE_BRIEF = $FeatureBrief
+    WORKSHOP_OUTCOME = $Outcome
     GITHUB_REPOSITORY_ID = [string]$state.repository.id
     GITHUB_REPOSITORY_OWNER_ID = [string]$state.repository.ownerId
 }
@@ -180,19 +177,22 @@ $desiredLabels = @(
 $desiredIssues = @(
     [ordered]@{
         marker = "<!-- workshop-feature-parent:v1 -->"
-        title = "Workshop feature: $FeatureBrief"
+        title = "Babazon: product search and category filtering"
         labels = @("workshop", "instructor-seeded")
         body = @"
 <!-- workshop-feature-parent:v1 -->
 ## Outcome
 
-Plan and deliver the selected feature brief: **$FeatureBrief**.
+Deliver one shopper outcome: browse the Babazon catalogue, search by product
+text, filter by category, clear filters, and understand loading, empty, error,
+and results states.
 
 ## Required path
 
-- Read the feature brief and applicable `AGENTS.md`.
-- Create and approve an OpenSpec change before implementation.
-- Split implementation into bounded tasks with non-overlapping path ownership.
+- Read `AGENTS.md`, `DESIGN.md`, and the observable acceptance criteria here.
+- Review a Copilot App Plan before implementation.
+- Create exactly four child issues with dependencies, owned paths, prohibited
+  paths, focused tests, and completion evidence.
 - Link pull requests and focused validation evidence here.
 
 This issue seeds the work boundary; it does not contain the participant solution.
@@ -211,8 +211,7 @@ JSON responses.
 
 ## Contract
 
-- Link the ``cloud-agent-workshop-exercise`` scenarios in
-  ``openspec/changes/harden-workshop-lab-operations/``.
+- Link this issue and the parent Babazon outcome issue.
 - Own only ``src/server/app.ts`` and ``tests/api.test.ts``.
 - Do not change ``src/client/**``, ``src/shared/**``, ``infra/**``,
   ``.github/workflows/**``, security fixtures, or participant feature code.
@@ -221,8 +220,8 @@ JSON responses.
 - Run ``npm test -- tests/api.test.ts``.
 - Link the branch, commit, test result, and pull request here.
 - Include ``<!-- cloud-agent-revision-exercise:v1 -->`` in the pull-request
-  body so the specification policy can validate this exact instructor-seeded
-  exercise without treating it as participant feature implementation.
+  body so workshop structural checks can identify this instructor-seeded
+  exercise.
 
 A human reviewer must request a focused ``HEAD /health`` regression assertion
 before approval. The revision must prove the no-store header is present and the

@@ -125,7 +125,7 @@ Isolated, non-production Lab 5 security exercise.
 
 - Expected CodeQL query: ``js/command-line-injection``
 - Fixture: ``$fixturePath``
-- Requirement: [deterministic security exercise](https://github.com/$Repository/blob/$BaseBranch/openspec/changes/harden-workshop-lab-operations/specs/deterministic-security-exercise/spec.md)
+- Requirement: follow the bounded security exercise contract in the linked issue.
 - Completion: replace shell execution with the small allow-list/``execFile`` remediation, then confirm CodeQL and required checks pass.
 
 This draft must not be merged while the CodeQL finding remains.
@@ -164,7 +164,7 @@ Remediate the synthetic CodeQL finding on $($existingPr.url).
 ## Evidence contract
 
 - Expected query: ``js/command-line-injection``.
-- OpenSpec scenario: [Verifiable remediation](https://github.com/$Repository/blob/$BaseBranch/openspec/changes/harden-workshop-lab-operations/specs/deterministic-security-exercise/spec.md).
+- Acceptance: the deterministic command-injection alert is removed by the supplied safe execution pattern.
 - Acceptance: use the supplied allow-list plus ``execFile`` pattern; do not suppress or disable CodeQL.
 - Focused validation: confirm the expected alert exists before the fix, push the remediation, and confirm the alert disappears while required checks pass.
 - Boundary: the fixture is synthetic, contains no secret, and is excluded from the default branch and production application inputs.
