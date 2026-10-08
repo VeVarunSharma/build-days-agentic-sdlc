@@ -4,4 +4,3 @@ name: babazon-foundry
 infra:
   provider: bicep
   path: ./infra
-

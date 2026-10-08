@@ -39,4 +39,3 @@ Rules:
 Canonical catalogue:
 
 {{PRODUCT_CATALOGUE}}
-
