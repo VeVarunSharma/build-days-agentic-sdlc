@@ -33,20 +33,20 @@ body:
     id: boundaries
     attributes:
       label: Boundaries and risks
-      description: Note dependencies, security considerations, explicit non-goals, and task boundaries.
+      description: Name all repositories, the shared contract owner, dependencies, security considerations, explicit non-goals, and task boundaries.
     validations:
       required: true
   - type: textarea
     id: tasks
     attributes:
       label: Bounded child issues
-      description: Link exactly four child issues and summarize their dependencies plus owned/prohibited paths.
+      description: Link exactly four repository-qualified child issues and summarize target repos, dependencies, and owned/prohibited paths.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
       label: Required evidence
-      description: Identify tests, checks, deployment proof, or screenshots needed for review.
+      description: Identify tests, checks, workflow runs, or screenshots needed for review. Cross-repo integration evidence must identify both tested SHAs and the contract version.
     validations:
       required: true

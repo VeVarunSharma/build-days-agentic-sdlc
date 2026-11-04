@@ -17,11 +17,19 @@ body:
       description: State the exact outcome. Keep this independently reviewable.
     validations:
       required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Target repository
+      description: Use owner/repo. Each task owns paths in one explicit repository.
+      placeholder: YOUR-OWNER/babazon-catalogue
+    validations:
+      required: true
   - type: textarea
     id: ownership
     attributes:
       label: Owned paths
-      description: List paths this task may modify and paths it must not modify.
+      description: Qualify ownership by repository; list paths this task may modify and paths it must not modify.
       placeholder: |
         Owns:
         - src/example/**
@@ -33,7 +41,7 @@ body:
     id: dependencies
     attributes:
       label: Dependencies
-      description: Link blocking tasks or write "None".
+      description: Link blocking tasks with full owner/repo issue references, or write "None".
     validations:
       required: true
   - type: checkboxes
@@ -56,4 +64,4 @@ body:
     id: receipt
     attributes:
       label: Execution receipt
-      description: On completion, add the branch, commit or PR, commands run, results, and remaining blockers.
+      description: On completion, add the repository, branch, commit or PR, commands, results, and blockers. Integration receipts need both app/service SHAs.

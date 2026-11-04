@@ -1,7 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$Repository,
-    [string]$ExpectedRevision,
+    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$Repository,
+    [ValidatePattern("^[0-9a-fA-F]{40}$")][string]$ExpectedRevision,
+    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$TemplateRepository = "VeVarunSharma/build-days-agentic-sdlc",
+    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueRepository,
+    [ValidatePattern("^[0-9a-fA-F]{40}$")][string]$CatalogueExpectedRevision,
+    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueTemplateRepository = "VeVarunSharma/babazon-catalogue-service",
+    [switch]$IncludeAzure,
     [string]$AzureSubscriptionId,
     [string]$AzureResourceGroup,
     [string[]]$Environments = @("workshop-validation", "workshop"),
@@ -14,8 +19,14 @@ param(
 $ErrorActionPreference = "Stop"
 $results = [System.Collections.Generic.List[object]]::new()
 
-if (-not $FixturePath -and (!$ExpectedRevision -or !$AzureSubscriptionId -or !$AzureResourceGroup)) {
-    throw "Live preflight requires -ExpectedRevision, -AzureSubscriptionId, and -AzureResourceGroup. Pass -Repository when it cannot be inferred from origin."
+if (!$ExpectedRevision -or !$CatalogueRepository -or !$CatalogueExpectedRevision) {
+    throw "Preflight requires -ExpectedRevision, -CatalogueRepository, and -CatalogueExpectedRevision. Use full approved source SHAs."
+}
+if ($Repository -and $Repository -eq $CatalogueRepository) {
+    throw "The app and catalogue must be different repositories."
+}
+if ($IncludeAzure -and (!$AzureSubscriptionId -or !$AzureResourceGroup)) {
+    throw "-IncludeAzure requires -AzureSubscriptionId and -AzureResourceGroup."
 }
 
 function Add-Result {
@@ -37,79 +48,103 @@ function Add-Result {
 
 function Invoke-JsonCommand {
     param([string]$File, [string[]]$Arguments)
-    $output = & $File @Arguments 2>$null
-    if ($LASTEXITCODE -ne 0) { throw "$File failed" }
+    $output = & $File @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "$File $($Arguments -join ' ') failed. Check access to both repositories and their Actions policy." }
     return ($output | Out-String | ConvertFrom-Json)
 }
 
 function Get-LiveState {
     $state = [ordered]@{ tools = @{} }
-    foreach ($tool in @("git", "node", "npm", "gh", "az", "copilot")) {
+    $tools = @("git", "node", "npm", "gh")
+    if ($IncludeAzure) { $tools += "az" }
+    foreach ($tool in $tools) {
         $command = Get-Command $tool -ErrorAction SilentlyContinue
         if (-not $command) {
             $state.tools[$tool] = $null
             continue
         }
         try {
-            $versionArgs = if ($tool -eq "az") { @("version", "--output", "json") } else { @("--version") }
+            [string[]]$versionArgs = if ($tool -eq "az") { @("version", "--output", "json") } else { @("--version") }
             $state.tools[$tool] = ((& $tool @versionArgs 2>$null) | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { throw "$tool version probe failed." }
         } catch {
-            $state.tools[$tool] = "installed"
+            Write-Warning "Cannot run $tool to read its version: $($_.Exception.Message)"
+            $state.tools[$tool] = $null
         }
     }
 
-    & gh auth status 2>&1 | Out-Null
-    $state.ghAuthenticated = $LASTEXITCODE -eq 0
-    & az account show --output none 2>$null
-    $state.azAuthenticated = $LASTEXITCODE -eq 0
+    $state.ghAuthenticated = $false
+    if ($state.tools.gh) {
+        & gh auth status 2>&1 | Out-Null
+        $state.ghAuthenticated = $LASTEXITCODE -eq 0
+    }
+    if ($IncludeAzure -and $state.tools.az) {
+        & az account show --output none 2>$null
+        $state.azAuthenticated = $LASTEXITCODE -eq 0
+    }
     if (-not $Repository) {
-        $origin = (& git remote get-url origin 2>$null | Out-String).Trim()
-        if ($origin -match "github\.com[:/](?<repo>[^/]+/[^/.]+)(?:\.git)?$") { $script:Repository = $Matches.repo }
+        $script:Repository = Invoke-JsonCommand "gh" @("repo", "view", "--json", "nameWithOwner") | Select-Object -ExpandProperty nameWithOwner
     }
     $state.repository = $Repository
-    $state.revisionContainsExpected = $false
-    if ($ExpectedRevision) {
-        & git merge-base --is-ancestor $ExpectedRevision HEAD 2>$null
-        $state.revisionContainsExpected = $LASTEXITCODE -eq 0
+    if ($Repository -eq $CatalogueRepository) {
+        throw "The app and catalogue must be different repositories."
     }
 
     if ($Repository -and $state.ghAuthenticated) {
         $repo = Invoke-JsonCommand "gh" @("api", "repos/$Repository")
+        $state.repository = [string]$repo.full_name
+        $source = Invoke-JsonCommand "gh" @("api", "repos/$TemplateRepository/commits/$ExpectedRevision")
+        $head = Invoke-JsonCommand "gh" @("api", "repos/$Repository/commits/$($repo.default_branch)")
+        $state.provenanceVerified = [string]$source.commit.tree.sha -eq [string]$head.commit.tree.sha
+        $state.targetRevision = [string]$head.sha
+        $catalogue = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository")
+        $catalogueSource = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueTemplateRepository/commits/$CatalogueExpectedRevision")
+        $catalogueHead = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository/commits/$($catalogue.default_branch)")
+        $catalogueActions = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository/actions/permissions")
+        $state.catalogue = [ordered]@{
+            repository = [ordered]@{
+                fullName = [string]$catalogue.full_name
+                issuesEnabled = [bool]$catalogue.has_issues
+                actionsEnabled = [bool]$catalogueActions.enabled
+            }
+            provenanceVerified = [string]$catalogueSource.commit.tree.sha -eq [string]$catalogueHead.commit.tree.sha
+            targetRevision = [string]$catalogueHead.sha
+        }
         $state.repoExists = $true
         $state.issuesEnabled = [bool]$repo.has_issues
-        $state.expectedOidcPrefix = "repo:$($repo.owner.login)@$($repo.owner.id)/$($repo.name)@$($repo.id)"
-        try {
-            $oidc = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/oidc/customization/sub")
-            $state.immutableOidc = [bool]$oidc.use_immutable_subject -and [string]$oidc.sub_claim_prefix -eq $state.expectedOidcPrefix
-            $state.oidcPrefix = [string]$oidc.sub_claim_prefix
-        } catch {
-            $state.immutableOidc = $false
-            $state.oidcPrefix = "unavailable"
-        }
-        try {
-            $actions = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/permissions")
-            $state.actionsEnabled = [bool]$actions.enabled
-        } catch { $state.actionsEnabled = $false }
-        try {
-            $environmentData = Invoke-JsonCommand "gh" @("api", "--paginate", "repos/$Repository/environments")
-            $state.environments = @($environmentData.environments.name)
-        } catch { $state.environments = @() }
-        try {
-            $state.environmentVariables = @{}
-            foreach ($environment in $Environments) {
-                $variableData = Invoke-JsonCommand "gh" @("api", "--paginate", "repos/$Repository/environments/$environment/variables")
-                $state.environmentVariables[$environment] = @($variableData.variables.name)
+        $actions = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/permissions")
+        $state.actionsEnabled = [bool]$actions.enabled
+        if ($IncludeAzure) {
+            $state.expectedOidcPrefix = "repo:$($repo.owner.login)@$($repo.owner.id)/$($repo.name)@$($repo.id)"
+            try {
+                $oidc = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/oidc/customization/sub")
+                $state.immutableOidc = [bool]$oidc.use_immutable_subject -and [string]$oidc.sub_claim_prefix -eq $state.expectedOidcPrefix
+                $state.oidcPrefix = [string]$oidc.sub_claim_prefix
+            } catch {
+                $state.immutableOidc = $false
+                $state.oidcPrefix = "unavailable"
             }
-        } catch { $state.environmentVariables = @{} }
-        try {
-            $runs = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/workflows/infra-validate.yml/runs?status=completed&per_page=20")
-            $state.cloudValidation = @($runs.workflow_runs | Where-Object {
-                $_.conclusion -eq "success" -and ((-not $ExpectedRevision) -or $_.head_sha -eq (& git rev-parse HEAD).Trim())
-            }).Count -gt 0
-        } catch { $state.cloudValidation = $false }
+            try {
+                $environmentData = Invoke-JsonCommand "gh" @("api", "--paginate", "repos/$Repository/environments")
+                $state.environments = @($environmentData.environments.name)
+            } catch { $state.environments = @() }
+            try {
+                $state.environmentVariables = @{}
+                foreach ($environment in $Environments) {
+                    $variableData = Invoke-JsonCommand "gh" @("api", "--paginate", "repos/$Repository/environments/$environment/variables")
+                    $state.environmentVariables[$environment] = @($variableData.variables.name)
+                }
+            } catch { $state.environmentVariables = @{} }
+            try {
+                $runs = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/workflows/infra-validate.yml/runs?status=completed&per_page=20")
+                $state.cloudValidation = @($runs.workflow_runs | Where-Object {
+                    $_.conclusion -eq "success" -and $_.head_sha -eq $state.targetRevision
+                }).Count -gt 0
+            } catch { $state.cloudValidation = $false }
+        }
     }
 
-    if ($state.azAuthenticated) {
+    if ($IncludeAzure -and $state.azAuthenticated) {
         $account = Invoke-JsonCommand "az" @("account", "show", "--output", "json")
         $state.subscriptionId = [string]$account.id
         try {
@@ -132,9 +167,8 @@ $toolRemediation = @{
     node = "Install Node.js 20.19 or later."
     npm = "Install npm with the supported Node.js distribution."
     gh = "Install GitHub CLI, then run 'gh auth login'."
-    az = "Install Azure CLI, then run 'az login'."
-    copilot = "Install GitHub Copilot CLI and confirm 'copilot --version'."
 }
+if ($IncludeAzure) { $toolRemediation.az = "Install Azure CLI, then run 'az login'." }
 foreach ($tool in $toolRemediation.Keys) {
     $value = $state.tools[$tool]
     if ($value) {
@@ -158,10 +192,12 @@ if ($state.ghAuthenticated) {
 } else {
     Add-Result FAIL "auth.github" "not authenticated" "GitHub CLI authenticated" "Run 'gh auth login' and authorize access to the team repository."
 }
-if ($state.azAuthenticated) {
-    Add-Result PASS "auth.azure" "authenticated" "Azure CLI authenticated" ""
-} else {
-    Add-Result FAIL "auth.azure" "not authenticated" "Azure CLI authenticated" "Run 'az login' with the workshop account and select the assigned subscription."
+if ($IncludeAzure) {
+    if ($state.azAuthenticated) {
+        Add-Result PASS "auth.azure" "authenticated" "Azure CLI authenticated" ""
+    } else {
+        Add-Result FAIL "auth.azure" "not authenticated" "Azure CLI authenticated" "Run 'az login' with the workshop account and select the assigned subscription."
+    }
 }
 
 $actualRepo = [string]$state.repository
@@ -170,10 +206,10 @@ if ($actualRepo -and (!$Repository -or $actualRepo -eq $Repository)) {
 } else {
     Add-Result FAIL "repository.identity" $(if ($actualRepo) { $actualRepo } else { "not detected" }) $Repository "Clone the assigned team repository or pass the correct -Repository owner/name."
 }
-if ($state.revisionContainsExpected) {
-    Add-Result PASS "repository.template-revision" $ExpectedRevision "approved template revision is an ancestor of HEAD" ""
+if ($state.provenanceVerified) {
+    Add-Result PASS "repository.template-revision" $ExpectedRevision "fresh app tree matches the approved source tree" ""
 } else {
-    Add-Result FAIL "repository.template-revision" "revision not found in HEAD history" $ExpectedRevision "Stop and ask the instructor to recreate or update the repository from the approved template revision."
+    Add-Result FAIL "repository.template-revision" "starter tree does not match" $ExpectedRevision "Use the approved fresh app starter before Lab 1; do not overwrite learner edits to make this gate pass."
 }
 
 foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnabled"))) {
@@ -182,12 +218,33 @@ foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnable
     } else {
         Add-Result FAIL "github.$($feature[0])" "disabled or unavailable" "enabled" "Ask an organization owner to enable GitHub $($feature[0]) for $actualRepo."
     }
+}
+
+$actualCatalogue = [string]$state.catalogue.repository.fullName
+if ($actualCatalogue -eq $CatalogueRepository -and $actualCatalogue -ne $actualRepo) {
+    Add-Result PASS "catalogue.identity" $actualCatalogue $CatalogueRepository ""
+} else {
+    Add-Result FAIL "catalogue.identity" $actualCatalogue $CatalogueRepository "Create your own catalogue template copy and pass its owner/name, distinct from the app repo."
+}
+if ($state.catalogue.provenanceVerified) {
+    Add-Result PASS "catalogue.template-revision" $CatalogueExpectedRevision "fresh service tree matches the approved source tree; ancestry is not required" ""
+} else {
+    Add-Result FAIL "catalogue.template-revision" "starter tree does not match" $CatalogueExpectedRevision "Use the approved service template contents. Template copies have new commit histories; do not require source-commit ancestry."
+}
+foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnabled"))) {
+    if ($state.catalogue -and $state.catalogue.repository -and $state.catalogue.repository[$feature[1]]) {
+        Add-Result PASS "catalogue.$($feature[0])" "enabled" "enabled" ""
+    } else {
+        Add-Result FAIL "catalogue.$($feature[0])" "disabled or unavailable" "enabled" "Enable GitHub $($feature[0]) for $CatalogueRepository."
+    }
+}
+
+if ($IncludeAzure) {
     if ($state.immutableOidc) {
         Add-Result PASS "github.oidc-subject" $state.oidcPrefix "immutable numeric owner/repository prefix" ""
     } else {
         Add-Result FAIL "github.oidc-subject" $(if ($state.oidcPrefix) { $state.oidcPrefix } else { "not configured" }) $(if ($state.expectedOidcPrefix) { $state.expectedOidcPrefix } else { "immutable numeric owner/repository prefix" }) "Run the immutable OIDC setup and repository preparation; do not substitute a name-only subject or client secret."
     }
-}
 foreach ($environment in $Environments) {
     if (@($state.environments) -contains $environment) {
         Add-Result PASS "github.environment.$environment" "present" "present" ""
@@ -218,12 +275,21 @@ if ($state.cloudValidation) {
 } else {
     Add-Result ADVISORY "cloud.oidc-infrastructure" "NOT_YET_RUN" "successful infra-validate.yml run before Lab 1" "Run Azure infrastructure validation before the readiness gate."
 }
+}
 
-Add-Result MANUAL "copilot.app" "shell detection is not reliable" "Copilot App installed, signed in, and able to open the team repository" "Open Copilot App, sign in, and open the assigned repository; record this check manually."
+Add-Result MANUAL "copilot.app" "shell detection is not reliable" "Copilot App installed, signed in, and able to open both repositories" "Open both participant copies in the App and record this check manually."
+Add-Result MANUAL "copilot.project" "UI capability must be checked" "one Copilot Project contains both participant repositories" "Create the Project and confirm both repositories in its context; report unavailable preview access honestly."
+Add-Result MANUAL "copilot.fusion" "model availability must be checked" "a bounded Fusion prompt has been tried" "Select an available Fusion effort level, run the opening prompt, and record the actual capability."
+Add-Result MANUAL "ghaw.engine" "billing and policy must be checked" "eligible per-run Copilot inference before Lab 5" "Confirm organization Copilot billing and Actions policy; do not add a long-lived token workaround."
 
 $document = [ordered]@{
     generatedAt = (Get-Date).ToUniversalTime().ToString("o")
+    evidenceSource = if ($FixturePath) { "fixture" } else { "live" }
     repository = $actualRepo
+    catalogueRepository = $actualCatalogue
+    sourceRevisions = [ordered]@{ app = $ExpectedRevision; catalogue = $CatalogueExpectedRevision }
+    startingCommits = [ordered]@{ app = [string]$state.targetRevision; catalogue = [string]$state.catalogue.targetRevision }
+    includeAzure = [bool]$IncludeAzure
     results = $results
     summary = [ordered]@{
         pass = @($results | Where-Object status -eq "PASS").Count
@@ -246,5 +312,5 @@ if ($document.summary.fail -gt 0) {
     Write-Host "PREFLIGHT BLOCKED: $($document.summary.fail) required check(s) failed." -ForegroundColor Red
     exit 1
 }
-Write-Host "PREFLIGHT READY: all automated blocking checks passed; complete MANUAL checks separately." -ForegroundColor Green
+Write-Host "PREFLIGHT READY ($($document.evidenceSource)): all automated blocking checks passed; complete MANUAL checks separately." -ForegroundColor Green
 exit 0

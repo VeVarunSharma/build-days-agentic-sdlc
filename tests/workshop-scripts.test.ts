@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -10,12 +10,14 @@ const readyFixture = resolve(root, "tests", "fixtures", "preflight-ready.json");
 const preparedFixture = resolve(root, "tests", "fixtures", "team-repo-prepared.json");
 const unpreparedFixture = resolve(root, "tests", "fixtures", "team-repo-unprepared.json");
 const revision = "0123456789abcdef0123456789abcdef01234567";
+const catalogueRevision = "a".repeat(40);
+const catalogueRepository = "octo-workshop/team-01-catalogue";
 const subscription = "00000000-0000-0000-0000-000000000001";
 
 beforeAll(() => mkdirSync(outputDirectory, { recursive: true }));
 afterAll(() => rmSync(outputDirectory, { recursive: true, force: true }));
 
-function preflightArgs(fixture: string, output: string) {
+function preflightArgs(fixture: string, output: string, includeAzure = true) {
   return [
     "-NoProfile",
     "-File",
@@ -24,14 +26,38 @@ function preflightArgs(fixture: string, output: string) {
     "octo-workshop/team-01",
     "-ExpectedRevision",
     revision,
-    "-AzureSubscriptionId",
-    subscription,
-    "-AzureResourceGroup",
-    "workshop-team01-rg",
+    "-CatalogueRepository",
+    catalogueRepository,
+    "-CatalogueExpectedRevision",
+    catalogueRevision,
+    ...(includeAzure ? [
+      "-IncludeAzure",
+      "-AzureSubscriptionId",
+      subscription,
+      "-AzureResourceGroup",
+      "workshop-team01-rg",
+    ] : []),
     "-FixturePath",
     fixture,
     "-JsonOutput",
     output,
+  ];
+}
+
+function bashPreflightArgs(fixture: string, output: string, includeAzure = true) {
+  return [
+    "./scripts/verify-env.sh",
+    "--repository", "octo-workshop/team-01",
+    "--expected-revision", revision,
+    "--catalogue-repository", catalogueRepository,
+    "--catalogue-expected-revision", catalogueRevision,
+    ...(includeAzure ? [
+      "--include-azure",
+      "--azure-subscription-id", subscription,
+      "--azure-resource-group", "workshop-team01-rg",
+    ] : []),
+    "--fixture", relative(root, fixture).replaceAll("\\", "/"),
+    "--json-output", relative(root, output).replaceAll("\\", "/"),
   ];
 }
 
@@ -44,18 +70,68 @@ function writeDerivedFixture(name: string, update: (state: Record<string, unknow
 }
 
 describe("environment preflight", () => {
+  it("passes a single version argument in the live path instead of splatting characters", () => {
+    const scriptPath = resolve(root, "scripts", "verify-env.ps1").replaceAll("'", "''");
+    const script = `
+$ErrorActionPreference = 'Stop'
+$IncludeAzure = $false
+$Repository = 'octo-workshop/team-01'
+$CatalogueRepository = 'octo-workshop/team-01-catalogue'
+function git {
+  if ($args.Count -ne 1 -or $args[0] -ne '--version') { throw 'Incorrect git version arguments' }
+  $global:LASTEXITCODE = 0
+  'git version 2.51.0'
+}
+function node {
+  if ($args.Count -ne 1 -or $args[0] -ne '--version') { throw 'Incorrect node version arguments' }
+  $global:LASTEXITCODE = 0
+  'v20.19.5'
+}
+function npm {
+  if ($args.Count -ne 1 -or $args[0] -ne '--version') { throw 'Incorrect npm version arguments' }
+  $global:LASTEXITCODE = 0
+  '10.8.2'
+}
+function gh {
+  if ($args.Count -eq 1 -and $args[0] -eq '--version') {
+    $global:LASTEXITCODE = 0
+    'gh version 2.80.0'
+  } elseif (($args -join ' ') -eq 'auth status') {
+    $global:LASTEXITCODE = 1
+  } else { throw 'Unexpected network command in live-probe test' }
+}
+$tokens = $null
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile('${scriptPath}', [ref]$tokens, [ref]$errors)
+$definition = $ast.Find({
+  param($node)
+  $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-LiveState'
+}, $true)
+. ([scriptblock]::Create($definition.Extent.Text))
+$state = Get-LiveState
+$state.tools | ConvertTo-Json -Compress
+exit 0
+`;
+    const output = execFileSync("pwsh", ["-NoProfile", "-Command", script], { cwd: root, encoding: "utf8" });
+    expect(JSON.parse(output)).toEqual({
+      git: "git version 2.51.0", node: "v20.19.5", npm: "10.8.2", gh: "gh version 2.80.0",
+    });
+  }, 20_000);
+
   it("returns green structured evidence while keeping Copilot App manual", () => {
     const output = resolve(outputDirectory, "powershell-ready.json");
     execFileSync("pwsh", preflightArgs(readyFixture, output), { cwd: root });
     const report = JSON.parse(readFileSync(output, "utf8"));
     expect(report.summary.fail).toBe(0);
+    expect(report.evidenceSource).toBe("fixture");
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
   }, 90_000);
 
   it.each([
     ["missing tool", (state: Record<string, unknown>) => ((state.tools as Record<string, unknown>).az = null), "tool.az"],
     ["failed auth", (state: Record<string, unknown>) => (state.ghAuthenticated = false), "auth.github"],
-    ["wrong revision", (state: Record<string, unknown>) => (state.revisionContainsExpected = false), "repository.template-revision"],
+    ["wrong app identity", (state: Record<string, unknown>) => (state.repository = "octo-workshop/wrong-app"), "repository.identity"],
+    ["wrong revision", (state: Record<string, unknown>) => (state.provenanceVerified = false), "repository.template-revision"],
     ["missing configuration", (state: Record<string, unknown>) => (state.environments = ["workshop"]), "github.environment.workshop-validation"],
     ["cloud validation not run", (state: Record<string, unknown>) => (state.cloudValidation = false), "cloud.oidc-infrastructure"],
   ])("fails actionably for %s", (name, update, expectedId) => {
@@ -70,33 +146,79 @@ describe("environment preflight", () => {
   }, 90_000);
 
   it("provides equivalent Bash classifications", () => {
-    const output = ".script-test-output/bash-ready.json";
+    const output = resolve(outputDirectory, "bash-ready.json");
     execFileSync(
       "bash",
-      [
-        "./scripts/verify-env.sh",
-        "--repository",
-        "octo-workshop/team-01",
-        "--expected-revision",
-        revision,
-        "--azure-subscription-id",
-        subscription,
-        "--azure-resource-group",
-        "workshop-team01-rg",
-        "--fixture",
-        "tests/fixtures/preflight-ready.json",
-        "--json-output",
-        output,
-      ],
+      bashPreflightArgs(readyFixture, output),
       { cwd: root },
     );
     const report = JSON.parse(readFileSync(resolve(root, output), "utf8"));
     expect(report.summary.fail).toBe(0);
+    expect(report.evidenceSource).toBe("fixture");
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
+  }, 90_000);
+
+  it("supports local-only participation and new template history in both shells", () => {
+    const fixture = writeDerivedFixture("local-only", (state) => {
+      (state.tools as Record<string, unknown>).az = null;
+      (state.tools as Record<string, unknown>).copilot = null;
+      state.azAuthenticated = false;
+      state.immutableOidc = false;
+      state.cloudValidation = false;
+      state.environments = [];
+    });
+    const psOutput = resolve(outputDirectory, "local-ps.json");
+    const bashOutput = resolve(outputDirectory, "local-bash.json");
+    execFileSync("pwsh", preflightArgs(fixture, psOutput, false), { cwd: root });
+    execFileSync("bash", bashPreflightArgs(fixture, bashOutput, false), { cwd: root });
+    const classifications: string[][] = [];
+    for (const output of [psOutput, bashOutput]) {
+      const report = JSON.parse(readFileSync(output, "utf8")) as {
+        summary: { fail: number };
+        results: Array<{ id: string; status: string }>;
+        catalogueRepository: string;
+        sourceRevisions: { catalogue: string };
+        startingCommits: { catalogue: string };
+      };
+      expect(report.summary.fail).toBe(0);
+      expect(report.catalogueRepository).toBe(catalogueRepository);
+      expect(report.sourceRevisions.catalogue).toBe(catalogueRevision);
+      expect(report.startingCommits.catalogue).toBe("2".repeat(40));
+      expect(report.results.some(({ id }) => /azure|oidc|environment|tool\.az/.test(id))).toBe(false);
+      for (const id of ["copilot.app", "copilot.project", "copilot.fusion", "ghaw.engine"]) {
+        expect(report.results).toContainEqual(expect.objectContaining({ id, status: "MANUAL" }));
+      }
+      classifications.push(report.results.map(({ id, status }) => `${id}:${status}`).sort());
+    }
+    expect(classifications[0]).toEqual(classifications[1]);
+  }, 90_000);
+
+  it.each([
+    ["identity", (catalogue: Record<string, unknown>) => {
+      (catalogue.repository as Record<string, unknown>).fullName = "octo-workshop/wrong-service";
+    }, "catalogue.identity"],
+    ["contents", (catalogue: Record<string, unknown>) => { catalogue.provenanceVerified = false; }, "catalogue.template-revision"],
+    ["actions", (catalogue: Record<string, unknown>) => {
+      (catalogue.repository as Record<string, unknown>).actionsEnabled = false;
+    }, "catalogue.actions"],
+  ])("blocks invalid companion %s in both shells", (name, update, expectedId) => {
+    const fixture = writeDerivedFixture(`catalogue-${name}`, (state) => {
+      update(state.catalogue as Record<string, unknown>);
+    });
+    for (const shell of ["pwsh", "bash"]) {
+      const output = resolve(outputDirectory, `catalogue-${name}-${shell}.json`);
+      const args = shell === "pwsh"
+        ? preflightArgs(fixture, output, false)
+        : bashPreflightArgs(fixture, output, false);
+      const run = spawnSync(shell, args, { cwd: root, encoding: "utf8" });
+      expect(run.status, `${run.stdout}${run.stderr}`).toBe(1);
+      const report = JSON.parse(readFileSync(output, "utf8"));
+      expect(report.results).toContainEqual(expect.objectContaining({ id: expectedId, status: "FAIL" }));
+    }
   }, 90_000);
 });
 
-function preparationArgs(fixture: string, output: string) {
+function preparationArgs(fixture: string, output: string, includeAzure = true) {
   return [
     "-NoProfile",
     "-File",
@@ -109,20 +231,27 @@ function preparationArgs(fixture: string, output: string) {
     "octo-workshop/workshop-template",
     "-TemplateRevision",
     revision,
+    "-CatalogueRepository",
+    catalogueRepository,
+    "-CatalogueTemplateRevision",
+    catalogueRevision,
     "-TeamSize",
     "3",
     "-TeamId",
     "team01",
-    "-AzureSubscriptionId",
-    subscription,
-    "-AzureTenantId",
-    "00000000-0000-0000-0000-000000000002",
-    "-AzureClientId",
-    "00000000-0000-0000-0000-000000000004",
-    "-AzureResourceGroup",
-    "workshop-team01-rg",
-    "-EntraApplicationObjectId",
-    "00000000-0000-0000-0000-000000000003",
+    ...(includeAzure ? [
+      "-IncludeAzure",
+      "-AzureSubscriptionId",
+      subscription,
+      "-AzureTenantId",
+      "00000000-0000-0000-0000-000000000002",
+      "-AzureClientId",
+      "00000000-0000-0000-0000-000000000004",
+      "-AzureResourceGroup",
+      "workshop-team01-rg",
+      "-EntraApplicationObjectId",
+      "00000000-0000-0000-0000-000000000003",
+    ] : []),
     "-Confirmation",
     "PREPARE",
     "-FixturePath",
@@ -134,14 +263,18 @@ function preparationArgs(fixture: string, output: string) {
 }
 
 describe("team repository preparation", () => {
-  it("plans supported settings and deliberately excludes the security branch and PR", () => {
+  it("plans both repos without the retired security exercise", () => {
     const output = resolve(outputDirectory, "unprepared.json");
     execFileSync("pwsh", preparationArgs(unpreparedFixture, output), { cwd: root });
     const report = JSON.parse(readFileSync(output, "utf8"));
     expect(report.teamSize).toBe(3);
-    expect(report.operations).toContainEqual(
-      expect.objectContaining({ action: "SKIP", resource: "security exercise branch/PR" }),
-    );
+    expect(report.catalogueRepository).toBe(catalogueRepository);
+    expect(JSON.stringify(report.operations)).not.toContain("security exercise");
+    expect(report.operations).toContainEqual(expect.objectContaining({
+      action: "VERIFY",
+      resource: "repository topology",
+      detail: expect.stringContaining(catalogueRepository),
+    }));
     expect(report.operations).toContainEqual(
       expect.objectContaining({ action: "CREATE", resource: "issue:Babazon: product search and category filtering" }),
     );
@@ -169,6 +302,34 @@ describe("team repository preparation", () => {
         expect.objectContaining({ action: "VERIFY" }),
       ]);
   }, 30_000);
+
+  it("prepares local teams without Azure configuration or environment writes", () => {
+    const output = resolve(outputDirectory, "local-preparation.json");
+    execFileSync("pwsh", preparationArgs(unpreparedFixture, output, false), { cwd: root });
+    const report = JSON.parse(readFileSync(output, "utf8")) as {
+      includeAzure: boolean;
+      azureScope: null;
+      environments: string[];
+      operations: Array<{ resource: string }>;
+    };
+    expect(report.includeAzure).toBe(false);
+    expect(report.azureScope).toBeNull();
+    expect(report.environments).toEqual([]);
+    expect(report.operations.some(({ resource }) => /environment|oidc/i.test(resource))).toBe(false);
+    expect(report.operations).toContainEqual(expect.objectContaining({ resource: "copilot project" }));
+  }, 20_000);
+
+  it("rejects a companion whose starter contents changed", () => {
+    const fixture = writeDerivedFixture("changed-catalogue", (state) => {
+      Object.assign(state, JSON.parse(readFileSync(unpreparedFixture, "utf8")));
+      (state.catalogue as Record<string, unknown>).provenanceVerified = false;
+    });
+    const run = spawnSync("pwsh", preparationArgs(fixture, resolve(outputDirectory, "changed-catalogue.json"), false), {
+      cwd: root, encoding: "utf8",
+    });
+    expect(run.status).not.toBe(0);
+    expect(stripVTControlCharacters(`${run.stdout}${run.stderr}`)).toContain("Catalogue template provenance failed");
+  }, 20_000);
 
   it("rejects wildcard or name-only federation", () => {
     const fixture = writeDerivedFixture("bad-oidc", (state) => {

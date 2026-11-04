@@ -7,12 +7,15 @@ the review trail.
 
 ## Prerequisites
 
-- The prepared team repository includes the cloud-agent child issue.
+- The **app repository** includes the seeded cloud-agent follow-up issue.
 - The issue owns only `src/server/app.ts` and `tests/api.test.ts`.
+- This operational follow-up is separate from the four product-discovery
+  children. Link the parent for context without adding a fifth implementation
+  child to that outcome.
 
 ## Participant steps
 
-**Use:** GitHub coding agent from the seeded issue.
+**Use:** GitHub coding agent from the seeded app-repository issue.
 
 **Attach:** The issue, `AGENTS.md`, `DESIGN.md`, and current API tests.
 
