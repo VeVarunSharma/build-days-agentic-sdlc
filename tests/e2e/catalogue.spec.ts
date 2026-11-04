@@ -13,8 +13,6 @@ test.describe("Babazon catalogue", () => {
       page.getByRole("heading", { name: "Babazon goods" }),
     ).toBeVisible();
     await expect(page.getByText("8 products", { exact: true })).toBeVisible();
-    // Deliberate Lab 5 failure; never merge this rehearsal branch.
-    expect(await page.getByText("8 products", { exact: true }).textContent()).toBe("9 products");
     await expect(
       page.getByRole("heading", { name: "Aurora Desk Lamp" }),
     ).toBeVisible();
