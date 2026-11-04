@@ -8,8 +8,19 @@ on:
       - "playwright.config.ts"
       - "src/**"
       - "tests/**"
+      - "scripts/**"
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - "DESIGN.md"
       - "tsconfig*.json"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/*.md"
+      - ".github/workflows/*.lock.yml"
+      - ".github/aw/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
   push:
     branches: [main]
     paths:
@@ -18,7 +29,19 @@ on:
       - "playwright.config.ts"
       - "src/**"
       - "tests/**"
+      - "scripts/**"
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - "DESIGN.md"
       - "tsconfig*.json"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/*.md"
+      - ".github/workflows/*.lock.yml"
+      - ".github/aw/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/skills/**"
+      - ".github/agents/**"
   workflow_dispatch:
 
 permissions:

@@ -10,8 +10,10 @@ on:
 permissions:
   contents: read
   issues: read
+  copilot-requests: write
 
 engine: copilot
+checkout: false
 
 concurrency:
   group: issue-clarifier
@@ -27,6 +29,16 @@ network: defaults
 safe-outputs:
   add-comment:
     max: 1
+  report-failure-as-issue: false
+  report-failed-jobs: false
+  report-missing-tool:
+    create-issue: false
+  report-missing-data:
+    create-issue: false
+  report-incomplete:
+    create-issue: false
+  noop:
+    report-as-issue: false
 
 ---
 
@@ -36,7 +48,8 @@ Review issue `${{ inputs.issue }}` as a read-only workshop issue analyst.
 
 1. Summarize the user or operator outcome requested by the issue.
 2. Identify missing acceptance criteria, constraints, or validation evidence.
-3. Check for dependencies plus owned and prohibited paths.
+3. Check the target repository, repository-qualified dependencies, and owned
+   and prohibited paths.
 4. If the issue is already clear, state that it is ready for Copilot App planning.
 5. Use the single allowed issue comment for the concise result.
 
