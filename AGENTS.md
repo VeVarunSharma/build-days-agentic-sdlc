@@ -1,8 +1,8 @@
 # Agent guide
 
 This repository is an issue-first Agentic SDLC workshop and a deployable
-Babazon.com starter. Follow links to authoritative context instead of
-duplicating it.
+Babazon.com starter. Keep developer instructions brief and task-focused.
+Link to authoritative context instead of repeating it.
 
 ## Read first
 
@@ -33,6 +33,7 @@ choosing.
 - Split implementation into exactly four bounded child issues with explicit
   dependencies plus owned and prohibited paths.
 - Stabilize shared contracts and foundations before using Fleet.
+- Use Projects for the main participant path; Fleet is an optional stretch.
 - Use isolated sessions or worktrees for parallel tasks and keep ownership
   non-overlapping.
 - Link pull requests to their parent and child issues and record exact

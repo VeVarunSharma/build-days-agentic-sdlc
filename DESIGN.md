@@ -19,20 +19,10 @@ Agent conversation history is not authoritative.
 
 ### Planning is lightweight and issue-first
 
-Material work follows this contract:
-
-```text
-parent issue -> reviewed Copilot App Plan -> bounded child issues
-             -> isolated sessions/worktrees -> pull requests
-             -> deterministic CI and review -> optional deployment evidence
-```
-
-The parent issue contains the user outcome and observable acceptance criteria.
-Exactly four child issues record the target repository, dependencies, and
-owned/prohibited paths. Children can live in different repositories; use
-repository-qualified issue links. The reviewed Plan resolves shared foundations
-before parallel implementation. A Copilot Project coordinates the work but does
-not replace GitHub issues, the reviewed Plan, or CI as the delivery record.
+Follow the issue-first contract in [AGENTS.md](AGENTS.md): one outcome,
+a reviewed Plan, and four bounded repository-qualified tasks. Stabilize shared
+contracts first. A Project coordinates work; issues, the Plan, PRs, and CI
+remain the delivery record.
 
 ### Context uses progressive disclosure
 
@@ -164,8 +154,8 @@ as unavailable rather than represented as equivalent local checks.
   gaps must be explicit.
 - Product search and category filtering across the service boundary are the
   shared feature path, not a rewrite of the already-working shopper UI.
-- Fleet is used only after shared foundations and non-overlapping ownership are
-  reviewed.
+- Projects coordinates the main path. Fleet is an optional stretch, after
+  shared foundations and non-overlapping ownership are reviewed.
 - Focused tests should return actionable results within two minutes.
 - Every lab has a happy path, recovery checkpoint, and optional stretch task.
 - Azure deployment remains advanced/instructor material and is not required to
