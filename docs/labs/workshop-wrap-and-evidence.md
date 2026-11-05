@@ -2,46 +2,40 @@
 
 ## Outcome
 
-Leave a reviewer-readable chain from outcome to merged evidence.
+Leave a traceable result across both repositories.
 
 ## Prerequisites
 
-- Child pull requests are merged or have explicit follow-up.
-- Required checks have final results.
+Changes are merged or have an explicit follow-up owner; required checks have results.
 
 ## Participant steps
 
-**Use:** Copilot App Interactive mode.
+**Use:** Interactive mode in the Project.
 
-**Attach:** The parent issue, reviewed Plan, four child issues, pull requests,
-CI results, security results, and optional deployment evidence.
+**Attach:** Parent, Plan, four children, both repos' changes/CI, QA issue/run,
+and applicable scanner/deployment results.
 
-**Prompt:** Build a concise evidence matrix mapping every parent acceptance
-criterion to a child issue, pull request, exact validation result, and remaining
-risk. Distinguish passed, failed, and unavailable checks.
+**Prompt:** Map each acceptance criterion to its repo, change, command/result,
+and evidence link. Include both tested SHAs and the contract version. Separate
+facts from hypotheses and pass/fail from missing/unavailable.
 
-**Expect:** A traceable summary that does not rely on agent conversation history.
+**Expect:** Evidence a teammate can follow without the original chat.
 
-**Decide:** Close the parent only when all acceptance criteria have evidence or
-an explicit follow-up owner.
+**Decide:** Close the parent only when criteria have evidence or owned follow-up.
 
 ## Expected repository artifacts
 
-- Parent issue evidence summary.
-- Closed or clearly deferred child issues.
-- Links to CI, security, browser, and optional deployment receipts.
+A parent-issue summary linking both commits, child outcomes, and execution receipts.
 
 ## Verification
 
-Have a teammate follow the links without using the originating App sessions.
-Any unverifiable statement becomes a follow-up.
+Have a teammate follow the links. Include the Fusion attempt, actual Project
+usage, failed-run triage, replay deduplication, and successful-run no-op.
 
 ## Recovery
 
-Create a recovery branch from the last reviewed merge or pull-request commit,
-then re-run validation on the recovered state.
+Restore the last reviewed app/service commit pair and re-run checks.
 
 ## Stretch
 
-Record one process improvement as a new repository issue with a measurable
-outcome and owner.
+Record one measurable process improvement as a new issue.

@@ -1,64 +1,74 @@
-# Lab 1: Frame the Babazon outcome
+# Lab 1: Frame the outcome
 
 ## Outcome
 
-Create one parent issue for product search and category filtering, then review a
-Copilot App Plan that resolves shared contracts before parallel work.
+Try Fusion, then review one cross-repo product search and category filtering Plan.
 
 ## Prerequisites
 
-- The team repository is open in GitHub and the Copilot App.
-- Issues and Actions are enabled.
-- The application and tests run from the approved starter revision.
+Complete [pre-work](../../README.md#pre-work). One Project must contain your app
+copy and catalogue-service copy, not just the upstream templates.
 
 ## Participant steps
 
-Use the README prompt-card pattern for this and every later lab.
+### Try Fusion
 
-**Use:** Copilot App Plan mode.
+**Use:** Copilot Fusion in the Project.
 
-**Attach:** `AGENTS.md`, `DESIGN.md`, and the parent issue created from the
-feature issue form.
+**Attach:** Both repos' `AGENTS.md`/`DESIGN.md`, app `src/server/catalogue.ts`,
+and service `contracts/catalogue-v1.schema.json`.
 
-**Prompt:** Plan one Babazon product discovery outcome: shoppers can browse the
-catalogue, search by product text, filter by category, clear filters, and see
-accessible loading, empty, and failure states. Propose exactly four child
-issues. Put shared contracts and deterministic catalogue foundations first.
-Give every child explicit dependencies, owned paths, prohibited paths, focused
-tests, and completion evidence. Do not implement.
+**Prompt:** Map the current and intended request paths across these repos.
+Separate working features from unfinished service queries and app integration.
+Identify the shared contract decisions. Do not edit files.
 
-**Expect:** A Plan that names the shared contract seam, sequences foundations
-before UI and API integration, and leaves no overlapping ownership.
+**Expect:** A file-backed explanation of the `ProductCatalogue` boundary.
 
-**Decide:** Approve only when a reviewer can assign every file to one child and
-the acceptance criteria are observable.
+**Decide:** Verify it against the code. Inspect the models used; Fusion does not
+always use multiple models. Use the [references](../../README.md#references)
+for HydraFusion background and Benchmarks methodology.
 
-Create the four child issues from the reviewed Plan:
+### Review the Plan
 
-1. shared product contracts and deterministic catalogue;
-2. catalogue API, health, and readiness;
-3. accessible search and category-filter UI;
-4. integration, browser QA, and evidence.
+Create the parent outcome issue in the app repo.
+
+**Use:** Copilot App Plan mode in the Project.
+
+**Attach:** The parent, both repo guides, and the service contract.
+
+**Prompt:** Plan service-side search/filtering and an HTTP catalogue adapter
+for the existing app. Follow DESIGN.md: preserve the shopper journey, validate
+responses, bound requests, and show outages without local-data fallback.
+Propose exactly four repository-qualified children with dependencies, owned
+paths, prohibited paths, focused checks, and evidence. Do not implement.
+
+**Expect:** A reviewed Copilot App Plan with stable contracts before parallel work.
+
+**Decide:** Approve only when every file has one owner and success is observable.
+
+| Child | Owns | Depends on |
+|---|---|---|
+| 1. Contract | Service schemas, types, examples, contract tests; no HTTP behavior changes. | None |
+| 2. Service queries | Service routes, query API tests, smoke checks; no contract changes. | 1 |
+| 3. App integration | App adapter/configuration, startup/readiness, focused tests; no service or UI feature edits. | 1 |
+| 4. Integration | App two-process browser/contract checks and CI; no new features. | 2, 3 |
+
+Use `owner/repo#number` links. Keep the Lab 4 cache-header change for that lab.
 
 ## Expected repository artifacts
 
-- One parent product-search outcome issue.
-- A reviewed Copilot App Plan linked from the parent.
-- Four linked child issues with dependencies and path boundaries.
+One parent, the reviewed Plan, four bounded children, and the two starting commits.
 
 ## Verification
 
-Ask the App to compare the parent issue, reviewed Plan, and children and report
-any missing acceptance criterion, dependency, owned path, prohibited path, or
-focused test. A human reviews the report before implementation starts.
+Check repo identities, ownership, dependencies, and acceptance criteria before implementation.
 
 ## Recovery
 
-If planning exceeds 25 minutes, keep the four-child sequence above, copy the
-required boundary fields from the implementation-task issue form, and record
-unresolved questions on the parent issue.
+Record unavailable Fusion/Projects access and use the pre-work fallback.
+Do not count a substitute session as use of the missing feature.
 
 ## Stretch
 
-Add a short risk table covering contract drift, overlapping ownership,
-non-deterministic data, inaccessible empty states, and slow validation.
+Compare the read-only prompt with another model in a fresh session. Judge
+file-backed correctness, not one attempt's apparent speed.

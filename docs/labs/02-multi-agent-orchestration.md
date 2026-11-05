@@ -2,64 +2,58 @@
 
 ## Outcome
 
-Stabilize shared product contracts, then run non-overlapping API and UI work in
-isolated sessions.
+Use the Project to coordinate service and app work after the contract is stable.
 
 ## Prerequisites
 
-- The parent issue and reviewed Copilot App Plan exist.
-- Four child issues declare dependencies, owned paths, prohibited paths, and
-  focused tests.
+The parent, reviewed Plan, and four repository-qualified children exist.
 
 ## Participant steps
 
-**Use:** Interactive mode for the foundation child.
+**Use:** Interactive mode for the contract child.
 
-**Attach:** The parent issue, reviewed Plan, foundation child issue,
-`AGENTS.md`, and `DESIGN.md`.
+**Attach:** The parent, Plan, child issue, both repo guides, and service contract.
 
-**Prompt:** Implement only the shared product contract and deterministic
-catalogue child. Stay inside its owned paths, run its focused tests, and update
-the child issue with exact results.
+**Prompt:** Stabilize schemas, types, and examples within this child's paths.
+Do not implement HTTP query behavior or the app adapter. Preserve browse/detail
+compatibility. Run focused contract checks and record the result.
 
-**Expect:** Stable product and query contracts, deterministic seed data, and a
-green focused test before dependent work begins.
+**Expect:** A reviewed, green foundation commit.
 
-**Decide:** Mark the foundation dependency complete only after reviewing the
-diff and test output.
+**Decide:** Complete the dependency only after checking the diff and results.
 
-**Use:** Fleet with one isolated session per ready child.
+**Use:** The Project conversation.
 
-**Attach:** The reviewed Plan and the separate API and UI child issues.
+**Attach:** The foundation commit and ready service-query/app-integration issues.
 
-**Prompt:** For each child, implement only its acceptance criteria and owned
-paths. Treat prohibited paths as hard boundaries. Pause on contract ambiguity.
-Run focused tests and prepare a pull request linked to the parent and child.
+**Prompt:** Start one isolated session per ready child in its target repo.
+Implement only the assigned behavior and tests. Stop on ownership or contract
+conflicts. Record results and prepare repo-specific changes for review.
 
-**Expect:** Separate branches or worktrees with no overlapping file changes.
+**Expect:** Separate branches/worktrees without overlapping ownership.
 
-**Decide:** Pause. Re-read the child issue before accepting any change outside
-its boundary. Use Autopilot only when the task and validation are unambiguous.
+**Decide:** Use **Overview > Needs input** to resolve blockers and **Steer this
+session** to narrow work. Use Autopilot only for clear, approved tasks.
+
+The app child introduces `CATALOGUE_URL`; the starter does not support it yet.
+Keep the standalone in-memory path, but never silently fall back in service mode.
+Query HTTP expectations belong to the service-query child's API tests.
 
 ## Expected repository artifacts
 
-- One reviewed foundation change.
-- Separate API and UI branches or sessions.
-- Child issue comments containing exact test commands and results.
+A foundation commit, separate service/app changes, and exact focused-check receipts.
 
 ## Verification
 
-Ask the App to compare changed files across active sessions and report overlap,
-missing dependencies, or prohibited-path edits. Review `git diff` and focused
-test output before opening pull requests.
+Compare **repository plus path** across sessions. Review actual diffs and results;
+an agent's completion message is not evidence.
 
 ## Recovery
 
-If a session crosses ownership, stop it, keep the valid patch, revert unrelated
-files, and restart from the child issue. If contracts are unstable, pause Fleet
-and return to one Interactive session.
+Pause work if contracts change. Review only the offending session's patch;
+never discard another contributor's edits.
 
 ## Stretch
 
-Add a deliberate reviewer steering message that narrows a test or accessibility
-expectation, then record how the session incorporated it.
+Try Fleet instead of the Project-led launch on a fresh exercise copy. Keep the
+same reviewed dependencies and ownership; never run duplicate owners together.
