@@ -19,6 +19,7 @@
     "targetRevision": "2222222222222222222222222222222222222222"
   },
   "cloudAgentBaselineGapVerified": true,
+  "appIntegrationBaselineGapVerified": true,
   "oidcCustomization": {
     "useImmutableSubject": true,
     "subClaimPrefix": "repo:octo-workshop@9876543/team-01@123456789"

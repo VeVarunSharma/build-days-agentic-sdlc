@@ -58,6 +58,22 @@ function Invoke-Gh {
     if ($LASTEXITCODE -ne 0) { throw "gh $($Arguments -join ' ') failed" }
 }
 
+function Test-StarterGaps {
+    param(
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ServerSource,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$IndexSource,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$CatalogueSource
+    )
+    return [ordered]@{
+        appIntegrationBaselineGapVerified = (
+            $IndexSource -notmatch 'CATALOGUE_URL' -and
+            $CatalogueSource -notmatch 'CATALOGUE_URL' -and
+            $CatalogueSource -match 'new\s+InMemoryProductCatalogue\s*\('
+        )
+        cloudAgentBaselineGapVerified = $ServerSource -notmatch 'no-store'
+    }
+}
+
 function Get-LiveState {
     & gh auth status | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "GitHub CLI is not authenticated. Run 'gh auth login'." }
@@ -73,13 +89,15 @@ function Get-LiveState {
     $catalogueActions = Invoke-GhJson @("api", "repos/$CatalogueRepository/actions/permissions")
     $catalogueSource = Invoke-GhJson @("api", "repos/$CatalogueTemplateRepository/commits/$CatalogueTemplateRevision")
     $catalogueHead = Invoke-GhJson @("api", "repos/$CatalogueRepository/commits/$($catalogueRepo.default_branch)")
-    $serverSourcePayload = Invoke-GhJson @(
-        "api",
-        "repos/$TemplateRepository/contents/src/server/app.ts?ref=$TemplateRevision"
-    )
-    $serverSource = [Text.Encoding]::UTF8.GetString(
-        [Convert]::FromBase64String(([string]$serverSourcePayload.content -replace "\s", ""))
-    )
+    $sources = @{}
+    foreach ($path in @("src/server/app.ts", "src/server/index.ts", "src/server/catalogue.ts")) {
+        $payload = Invoke-GhJson @("api", "repos/$TemplateRepository/contents/$path`?ref=$TemplateRevision")
+        $sources[$path] = [Text.Encoding]::UTF8.GetString(
+            [Convert]::FromBase64String(([string]$payload.content -replace "\s", ""))
+        )
+    }
+    $gaps = Test-StarterGaps -ServerSource $sources["src/server/app.ts"] `
+        -IndexSource $sources["src/server/index.ts"] -CatalogueSource $sources["src/server/catalogue.ts"]
     $actions = Invoke-GhJson @("api", "repos/$target/actions/permissions")
     $variableData = Invoke-GhJson @("api", "--paginate", "repos/$target/actions/variables")
     $environmentData = [pscustomobject]@{ environments = @() }
@@ -131,7 +149,8 @@ function Get-LiveState {
             sourceTree = [string]$catalogueSource.commit.tree.sha
             targetRevision = [string]$catalogueHead.sha
         }
-        cloudAgentBaselineGapVerified = $serverSource -notmatch 'no-store'
+        appIntegrationBaselineGapVerified = $gaps.appIntegrationBaselineGapVerified
+        cloudAgentBaselineGapVerified = $gaps.cloudAgentBaselineGapVerified
         environments = @($environmentData.environments.name)
         variables = @($variableData.variables | ForEach-Object { [ordered]@{ name = $_.name; value = $_.value } })
         environmentVariables = $environmentVariables
@@ -178,6 +197,9 @@ if (-not $state.catalogue.repository.actionsEnabled) {
 }
 if (-not $state.cloudAgentBaselineGapVerified) {
     throw "The selected template revision already contains the Lab 4 no-store cache policy. Seed a newly verified feature-independent issue instead of creating completed work."
+}
+if (-not $state.appIntegrationBaselineGapVerified) {
+    throw "The selected app template must keep the standalone in-memory catalogue and leave CATALOGUE_URL integration for learners. No changes were made."
 }
 if (-not $state.repository.id -or -not $state.repository.ownerId) {
     throw "GitHub did not return repository and owner IDs. Repository identity cannot be verified."

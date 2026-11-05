@@ -263,6 +263,40 @@ function preparationArgs(fixture: string, output: string, includeAzure = true) {
 }
 
 describe("team repository preparation", () => {
+  it("checks starter gaps only in instructor preparation", () => {
+    const scriptPath = resolve(root, "scripts", "prepare-team-repo.ps1").replaceAll("'", "''");
+    const script = `
+$ErrorActionPreference = 'Stop'
+$tokens = $null
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile('${scriptPath}', [ref]$tokens, [ref]$errors)
+$definition = $ast.Find({
+  param($node)
+  $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-StarterGaps'
+}, $true)
+. ([scriptblock]::Create($definition.Extent.Text))
+$baseline = @{ ServerSource = 'health and readiness'; IndexSource = 'createCatalogue()'; CatalogueSource = 'new InMemoryProductCatalogue()' }
+$cases = @(
+  (Test-StarterGaps @baseline),
+  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource 'process.env.CATALOGUE_URL' -CatalogueSource $baseline.CatalogueSource),
+  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource $baseline.IndexSource -CatalogueSource 'CATALOGUE_URL; new InMemoryProductCatalogue()'),
+  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource $baseline.IndexSource -CatalogueSource 'new HttpCatalogue()'),
+  (Test-StarterGaps -ServerSource 'Cache-Control: no-store' -IndexSource $baseline.IndexSource -CatalogueSource $baseline.CatalogueSource)
+)
+$cases | ConvertTo-Json -Compress
+`;
+    const results = JSON.parse(execFileSync("pwsh", ["-NoProfile", "-Command", script], {
+      cwd: root, encoding: "utf8",
+    }));
+    expect(results).toEqual([
+      { appIntegrationBaselineGapVerified: true, cloudAgentBaselineGapVerified: true },
+      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
+      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
+      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
+      { appIntegrationBaselineGapVerified: true, cloudAgentBaselineGapVerified: false },
+    ]);
+  }, 20_000);
+
   it("plans both repos without the retired security exercise", () => {
     const output = resolve(outputDirectory, "unprepared.json");
     execFileSync("pwsh", preparationArgs(unpreparedFixture, output), { cwd: root });
@@ -362,5 +396,22 @@ describe("team repository preparation", () => {
     expect(normalizedOutput).toContain(
       "already contains the Lab 4 no-store cache policy",
     );
+  }, 20_000);
+
+  it("rejects a pre-solved app integration before preparation writes", () => {
+    const fixture = writeDerivedFixture("completed-app-integration", (state) => {
+      Object.assign(state, JSON.parse(readFileSync(unpreparedFixture, "utf8")));
+      state.appIntegrationBaselineGapVerified = false;
+    });
+    const run = spawnSync(
+      "pwsh",
+      preparationArgs(fixture, resolve(outputDirectory, "completed-app-integration-report.json"), false),
+      { cwd: root, encoding: "utf8" },
+    );
+    expect(run.status).not.toBe(0);
+    const output = stripVTControlCharacters(`${run.stdout}${run.stderr}`).replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ");
+    expect(output).toContain("leave CATALOGUE_URL integration for learners");
+    expect(run.stdout).not.toContain("[CREATE]");
+    expect(run.stdout).not.toContain("[UPDATE]");
   }, 20_000);
 });
