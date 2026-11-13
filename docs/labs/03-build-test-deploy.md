@@ -17,7 +17,8 @@ Contract, API, and UI changes are reviewable and pass focused checks.
 **Prompt:** Integrate the reviewed sorting work. Verify both price directions,
 the agreed default and equal-price order, search/category combinations, reset,
 empty results, and errors. Preserve cart and checkout. Fix integration defects
-only. Run focused checks, then the full check.
+only. Run focused checks, then the full check. Isolate browser projects' server
+state so they do not share a rate-limit budget; keep production limits unchanged.
 
 **Expect:** A working feature and evidence tied to the tested commit.
 
