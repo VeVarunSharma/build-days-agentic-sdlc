@@ -1,41 +1,41 @@
-# Workshop wrap: Evidence and handoff
+# Workshop wrap-up
 
 ## Outcome
 
-Leave a traceable result across both repositories.
+Leave a result another developer can verify.
 
 ## Prerequisites
 
-Changes are merged or have an explicit follow-up owner; required checks have results.
+Changes are merged or have a follow-up owner; required checks have results.
 
 ## Participant steps
 
-**Use:** Interactive mode in the Project.
+**Use:** Interactive mode in your main Session.
 
-**Attach:** Parent, Plan, four children, both repos' changes/CI, QA issue/run,
-and applicable scanner/deployment results.
+**Attach:** The parent, reviewed Plan, child changes, CI, and QA run/issue.
 
-**Prompt:** Map each acceptance criterion to its repo, change, command/result,
-and evidence link. Include both tested SHAs and the contract version. Separate
-facts from hypotheses and pass/fail from missing/unavailable.
+**Prompt:** Map each acceptance criterion to the change, tested commit,
+command/result, and evidence link. Separate facts from hypotheses and
+pass/fail from missing/unavailable.
 
-**Expect:** Evidence a teammate can follow without the original chat.
+**Expect:** A concise handoff on the parent issue.
 
-**Decide:** Close the parent only when criteria have evidence or owned follow-up.
+**Decide:** Close the outcome only when its criteria have evidence or owned follow-up.
 
 ## Expected repository artifacts
 
-A parent-issue summary linking both commits, child outcomes, and execution receipts.
+One outcome summary linking the reviewed Plan, changes, and check results.
 
 ## Verification
 
-Have a teammate follow the links. Include the Fusion attempt, actual Project
-usage, failed-run triage, replay deduplication, and successful-run no-op.
+Have a teammate follow the links without your chat history.
 
 ## Recovery
 
-Restore the last reviewed app/service commit pair and re-run checks.
+Restore the last reviewed commit and re-run checks.
 
 ## Stretch
 
-Record one measurable process improvement as a new issue.
+Finished early? Choose your own use case in the optional capstone.
+
+[Previous: Agentic workflows](05-gh-aw.md) | [README](../../README.md) | [Next: Optional capstone](optional-capstone.md)

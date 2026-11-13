@@ -3,21 +3,21 @@ import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
-const participantLabs = [
-  "docs/labs/01-outcome-and-plan.md",
-  "docs/labs/02-multi-agent-orchestration.md",
-  "docs/labs/03-build-test-deploy.md",
-  "docs/labs/04-cloud-agent.md",
-  "docs/labs/05-gh-aw.md",
-  "docs/labs/workshop-wrap-and-evidence.md",
-];
+const coreLabs = [
+  ["docs/labs/01-outcome-and-plan.md", "SDD with the GitHub Copilot App"],
+  ["docs/labs/02-multi-agent-orchestration.md", "Multi-agent orchestration"],
+  ["docs/labs/03-build-test-deploy.md", "Build, test, deploy"],
+  ["docs/labs/04-cloud-agent.md", "Cloud agent"],
+  ["docs/labs/05-gh-aw.md", "Agentic workflows"],
+] as const;
+const wrap = "docs/labs/workshop-wrap-and-evidence.md";
+const capstone = "docs/labs/optional-capstone.md";
+const participantLabs = [...coreLabs.map(([path]) => path), wrap, capstone];
 const ownedTextFiles = [
-  "README.md",
-  "AGENTS.md",
-  "DESIGN.md",
-  ...participantLabs,
+  "README.md", "AGENTS.md", "DESIGN.md", ...participantLabs,
   ".github/copilot-instructions.md",
   ".github/skills/change-evidence/SKILL.md",
+  ".github/agents/evidence-reviewer.agent.md",
 ];
 
 const read = (path: string) => {
@@ -26,6 +26,8 @@ const read = (path: string) => {
   }
   return readFileSync(resolve(root, path), "utf8");
 };
+const prose = (path: string) => read(path).replace(/\s+/g, " ");
+const slug = (heading: string) => heading.toLowerCase().replace(/[^a-z0-9 -]/g, "").replace(/ /g, "-");
 
 function listMarkdownFiles(directory: string, prefix = ""): string[] {
   return readdirSync(resolve(root, directory, prefix), { withFileTypes: true })
@@ -33,166 +35,142 @@ function listMarkdownFiles(directory: string, prefix = ""): string[] {
       const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) return listMarkdownFiles(directory, relative);
       return entry.name.endsWith(".md") ? [`${directory}/${relative}`] : [];
-    })
-    .sort();
+    }).sort();
 }
 
-describe("issue-first workshop documentation", () => {
-  it("keeps only the five participant labs and wrap-up under docs", () => {
+describe("Session-first workshop documentation", () => {
+  it("keeps five core labs, a wrap-up, and a separate optional capstone", () => {
     expect(listMarkdownFiles("docs")).toEqual([...participantLabs].sort());
+    const text = prose(capstone);
+    expect(text).toContain("advanced participants");
+    expect(text).toContain("not required for workshop completion");
+    expect(text).toContain("Your own idea is welcome");
   });
 
-  it.each(participantLabs)("%s is App-first and independently runnable", (path) => {
-    const content = read(path);
+  it.each(coreLabs)("uses the requested title for %s", (path, title) => {
+    expect(read(path).split(/\r?\n/)[0]).toBe(`# Lab ${coreLabs.findIndex(([file]) => file === path) + 1}: ${title}`);
+    expect(read("README.md")).toContain(`${title}](${path})`);
+  });
+
+  it.each(participantLabs)("%s gives a location, result, recovery, and navigation", (path) => {
+    const text = read(path);
     for (const section of [
-      "## Outcome",
-      "## Prerequisites",
-      "## Expected repository artifacts",
-      "## Verification",
-      "## Recovery",
-      "## Stretch",
+      "## Outcome", "## Prerequisites", "## Expected repository artifacts",
+      "## Verification", "## Recovery", "## Stretch",
     ]) {
-      expect(content, `${path} is missing ${section}`).toContain(section);
+      expect(text, `${path} is missing ${section}`).toContain(section);
     }
     for (const field of ["**Use:**", "**Attach:**", "**Prompt:**", "**Expect:**", "**Decide:**"]) {
-      expect(content, `${path} is missing ${field}`).toContain(field);
+      expect(text, `${path} is missing ${field}`).toContain(field);
     }
+    expect(text).toContain("[README](../../README.md)");
+    const index = participantLabs.indexOf(path);
+    if (index > 0) expect(text).toContain(`](${participantLabs[index - 1]!.split("/").at(-1)})`);
+    if (index < participantLabs.length - 1) expect(text).toContain(`](${participantLabs[index + 1]!.split("/").at(-1)})`);
   });
 
-  it("uses one parent outcome, a reviewed Plan, and four bounded children", () => {
-    const content = `${read("README.md")}\n${read("docs/labs/01-outcome-and-plan.md")}`;
-    expect(content).toMatch(/product search and\s+category/);
-    expect(content).toContain("reviewed Copilot App Plan");
-    expect(content).toMatch(/exactly four|four bounded child/i);
-    expect(content).toMatch(/owned\s+paths/);
-    expect(content).toMatch(/prohibited\s+paths/);
-    expect(content).toContain("dependencies");
-  });
-
-  it("uses Project coordination by default and keeps Fleet in the stretch", () => {
-    const content = read("docs/labs/02-multi-agent-orchestration.md");
-    const [main, stretch] = content.split("## Stretch");
-    expect(main).toBeDefined();
-    expect(stretch).toBeDefined();
-    for (const concept of ["Interactive mode", "Project", "isolated session", "Autopilot", "Needs input"]) {
-      expect(main).toContain(concept);
-    }
-    expect(main).not.toContain("Fleet");
-    expect(stretch).toContain("Fleet");
-  });
-
-  it("starts with Fusion and a Project containing the app and service copies", () => {
+  it("puts the lab index before setup and includes the real banner below it", () => {
     const readme = read("README.md");
-    const lab = read("docs/labs/01-outcome-and-plan.md");
-    expect(readme.indexOf("Copilot Fusion")).toBeGreaterThan(-1);
-    expect(readme.indexOf("Copilot Fusion")).toBeLessThan(readme.indexOf("## Labs"));
-    for (const link of [
-      "https://benchmarks.github.com/",
-      "https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/",
-      "https://docs.github.com/en/copilot/concepts/models/copilot-fusion",
-      "https://github.com/VeVarunSharma/babazon-catalogue-service",
-    ]) {
-      expect(readme).toContain(link);
+    const setup = readme.indexOf("## Open your repo in a Session");
+    expect(setup).toBeGreaterThan(0);
+    expect(readme).toContain("**[Start Lab 1:");
+    for (const path of participantLabs) {
+      const position = readme.indexOf(`](${path})`);
+      expect(position).toBeGreaterThan(-1);
+      expect(position).toBeLessThan(setup);
     }
-    expect(readme).toContain("Fusion High");
-    expect(lab).toContain("../../README.md#references");
+    const ascii = readme.match(/^```text\r?\n([\s\S]*?)\r?\n```/);
+    expect(ascii).not.toBeNull();
+    expect(ascii![1]).toContain("BUILD DAYS");
+    for (const line of ascii![1]!.split(/\r?\n/)) {
+      expect(line).toMatch(/^[\x20-\x7e]*$/);
+      expect(line.length).toBeLessThanOrEqual(64);
+    }
+    const image = readme.match(/!\[([^\]]+)\]\((docs\/assets\/build-days-banner\.png)\)/);
+    expect(image).not.toBeNull();
+    expect(image![1]).toContain("Build Days");
+    expect(readme.indexOf(image![0])).toBeGreaterThan(readme.indexOf(`](${capstone})`));
+    const bytes = readFileSync(resolve(root, image![2]!));
+    expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(bytes.readUInt32BE(16)).toBeGreaterThan(0);
+    expect(bytes.readUInt32BE(20)).toBeGreaterThan(0);
+  });
+
+  it("teaches a repository Session and native SDD with Fusion", () => {
+    const readme = prose("README.md");
+    const lab = prose(coreLabs[0][0]);
+    for (const direction of ["Sessions > +", "Start session in", "This computer", "New worktree", "Interactive", "Copilot Fusion"]) {
+      expect(readme).toContain(direction);
+    }
+    expect(readme).toContain("**Sessions**, not **Projects**");
+    for (const concept of ["Interactive", "**Plan**", "Plan canvas", "Autopilot", "specification", "exactly four", "owned paths", "prohibited paths"]) {
+      expect(lab).toContain(concept);
+    }
     expect(lab).toContain("Do not implement");
-    expect(readme).toContain("Projects is public preview");
-    expect(readme).toContain("both participant repos");
-    expect(lab).toContain("owner/repo#number");
-    expect(lab).toContain("contracts/catalogue-v1.schema.json");
-    expect(readme).toMatch(/Use this\s+template/);
+    expect(lab).toContain("price low-to-high/high-to-low");
+    expect(lab).toContain("equal prices");
+    expect(readme).toContain("https://benchmarks.github.com/");
+    expect(readme).toContain("project-hydrafusion-frontier-quality-via-multi-model-orchestration");
+    expect(readme).toContain("github-copilot-app-reference/built-in-skills");
   });
 
-  it("describes real-boundary proof without checking the learner's implementation state", () => {
-    const implementation = read("docs/labs/02-multi-agent-orchestration.md");
-    const integration = read("docs/labs/03-build-test-deploy.md");
-    expect(implementation).toContain("CATALOGUE_URL");
-    expect(implementation).toContain("Needs input");
-    expect(implementation).toMatch(/Steer this\s+session/);
-    expect(integration).toContain("both tested commits");
-    expect(integration).toContain("browser route mocks");
-    expect(integration).toContain("Stop only the service");
-    expect(integration).toContain("exact reviewed service SHA");
-    expect(integration).toContain("private service repo");
+  it("coordinates bounded agents in this repo without a Project prerequisite", () => {
+    const lab = prose(coreLabs[1][0]);
+    for (const concept of ["main repository Session", "/orchestrate", "this repo only", "isolated session/worktree", "Do not merge"]) {
+      expect(lab).toContain(concept);
+    }
+    expect(read(coreLabs[1][0]).split("## Stretch")[1]).toContain("/fleet");
+    for (const path of ownedTextFiles) {
+      expect(read(path), `${path} retains the removed setup`).not.toMatch(
+        /Projects\s*>\s*\+|CatalogueRepository|CATALOGUE_URL|babazon-catalogue-service|starter pair|both tested SHAs|app\/service commit/i,
+      );
+      expect(read(path)).not.toMatch(/\b(?:openspec|opsx|spec.?kit)\b/i);
+    }
   });
 
-  it("rejects app-source inspection by documentation checks", () => {
-    for (const path of ["src/server/index.ts", "src/server/app.ts", "src/server/catalogue.ts"]) {
+  it("keeps learner checks independent of application source", () => {
+    for (const path of ["src/server/index.ts", "src/server/app.ts", "src/shared/contracts.ts"]) {
       expect(() => read(path)).toThrow("must not inspect learner implementation");
     }
-  });
-
-  it("keeps pre-work and the starter-pair receipt in one place", () => {
-    const readme = read("README.md");
-    expect(readme).toContain("## Pre-work");
-    expect(readme).toMatch(/issues\/34#issuecomment-\d+/);
-    expect(readme).not.toMatch(/\b[0-9a-f]{40}\b/i);
-    expect(readme).toContain("inference/billing");
-    expect(readme).toContain("long-lived credentials");
-    expect(readme).toContain("--pin v1.0.1");
-    expect(read("docs/labs/05-gh-aw.md")).not.toContain("gh extension install");
     expect(read("AGENTS.md")).toContain("Keep developer instructions brief");
   });
 
-  it("keeps Azure optional and verifies the Babazon live surface", () => {
-    const content = `${read("README.md")}\n${read("docs/labs/03-build-test-deploy.md")}`;
-    expect(content).toMatch(/optional|advanced/i);
-    for (const endpoint of ["/health", "/ready", "/api/products"]) {
-      expect(content).toContain(endpoint);
+  it("preserves build/deploy, Cloud agent revision, and bounded QA", () => {
+    const build = read(coreLabs[2][0]);
+    for (const value of ["npm run check", "npm start", "Optional deployment", "/health", "/ready", "/api/products", "OIDC"]) {
+      expect(build).toContain(value);
     }
-    expect(content).toContain("search");
-    expect(content).toContain("category");
-    expect(content).toContain("application page");
-  });
-
-  it("links every participant lab directly from the root README", () => {
-    const readme = read("README.md");
-    for (const path of participantLabs) {
-      expect(readme, `README.md does not link ${path}`).toContain(`](${path})`);
+    const cloud = prose(coreLabs[3][0]);
+    expect(cloud).toContain("separate from the four sorting children");
+    expect(cloud).toContain("Cache-Control: no-store");
+    expect(cloud).toContain("HEAD /health");
+    const qa = prose(coreLabs[4][0]);
+    for (const value of ["v1.0.1", "generally available", "at most one issue per failed run", "failed-test-explainer", "Replay the same failed ID", "successful CI ID"]) {
+      expect(qa).toContain(value);
     }
-  });
-
-  it("contains no legacy execution path or obsolete product language", () => {
-    const forbidden = /\b(?:openspec|opsx|feedback|votes?|voting)\b|specification pull request|table storage/i;
-    for (const path of ownedTextFiles) {
-      expect(read(path), `${path} contains legacy terminology`).not.toMatch(forbidden);
-    }
-  });
-
-  it("publishes only links to existing local Markdown files", () => {
-    for (const path of ownedTextFiles.filter((file) => file.endsWith(".md"))) {
-      for (const match of read(path).matchAll(/\[[^\]]+\]\((?!https?:|#)([^)#]+)(?:#[^)]+)?\)/g)) {
-        const target = resolve(root, dirname(path), match[1]!);
-        expect(existsSync(target), `${path} links to missing ${match[1]}`).toBe(true);
-      }
-    }
-  });
-
-  it("pins GA GH-AW and replaces the security lesson with bounded QA", () => {
-    const lab = read("docs/labs/05-gh-aw.md");
-    expect(lab).toContain("v1.0.1");
-    expect(lab).toContain("generally available");
-    expect(read("README.md")).toContain("2026-10-28-github-agentic-workflows-generally-available");
-    expect(lab).toContain("at most one issue per failed run");
-    expect(lab).toContain("failed-test-explainer");
-    expect(lab).toContain("regression");
-    expect(lab).toContain("Replay the same failed ID");
-    expect(lab).toContain("successful");
-    expect(lab).toContain("../../README.md#pre-work");
-    expect(lab).not.toMatch(/CodeQL finding|security exercise|preview access|v0\.89\.21/);
-    expect(existsSync(resolve(root, "scripts/seed-security-exercise.ps1"))).toBe(false);
+    expect(qa).not.toMatch(/CodeQL finding|security exercise|preview access/);
     expect(existsSync(resolve(root, ".github/workflows/codeql.yml"))).toBe(true);
     expect(existsSync(resolve(root, ".github/workflows/dependency-review.yml"))).toBe(true);
   });
 
-  it("preserves the separate cloud-agent revision and paired recovery evidence", () => {
-    const lab = read("docs/labs/04-cloud-agent.md");
-    expect(lab).toMatch(/separate from the four\s+product-discovery/);
-    expect(lab).toContain("HEAD /health");
-    expect(lab).toContain("Cache-Control: no-store");
-    expect(lab).toContain("npm run check");
-    expect(read("docs/labs/workshop-wrap-and-evidence.md")).toContain("app/service commit pair");
-    expect(read(".github/skills/change-evidence/SKILL.md")).not.toContain("GH-AW preview access");
+  it("keeps all local links and heading anchors valid", () => {
+    for (const path of ownedTextFiles) {
+      for (const match of read(path).matchAll(/\[[^\]]+\]\((?!https?:)([^)]+)\)/g)) {
+        const [file, anchor] = match[1]!.split("#");
+        const target = file ? resolve(root, dirname(path), file) : resolve(root, path);
+        expect(existsSync(target), `${path} links to missing ${match[1]}`).toBe(true);
+        if (anchor && target.endsWith(".md")) {
+          const headings = [...readFileSync(target, "utf8").matchAll(/^#{1,6}\s+(.+)$/gm)]
+            .map((heading) => slug(heading[1]!.trim()));
+          expect(headings, `${path} links to missing anchor ${match[1]}`).toContain(anchor);
+        }
+      }
+    }
+  });
+
+  it("keeps the complete participant path within its agreed text budget", () => {
+    const words = ["README.md", ...participantLabs]
+      .reduce((sum, path) => sum + (read(path).match(/\S+/g)?.length ?? 0), 0);
+    expect(words).toBeLessThanOrEqual(3000);
   });
 });

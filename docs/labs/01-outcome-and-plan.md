@@ -1,74 +1,77 @@
-# Lab 1: Frame the outcome
+# Lab 1: SDD with the GitHub Copilot App
 
 ## Outcome
 
-Try Fusion, then review one cross-repo product search and category filtering Plan.
+Use the App's native flow to define a feature, review its specification and Plan,
+then approve implementation. This is our approach to spec-driven development.
 
 ## Prerequisites
 
-Complete [pre-work](../../README.md#pre-work). One Project must contain your app
-copy and catalogue-service copy, not just the upstream templates.
+Follow [Open your repo in a Session](../../README.md#open-your-repo-in-a-session)
+and finish setup. Select Copilot Fusion in that repository Session.
 
 ## Participant steps
 
-### Try Fusion
+### Clarify in Interactive
 
-**Use:** Copilot Fusion in the Project.
+**Use:** The Session's **Interactive** mode.
 
-**Attach:** Both repos' `AGENTS.md`/`DESIGN.md`, app `src/server/catalogue.ts`,
-and service `contracts/catalogue-v1.schema.json`.
+**Attach:** `AGENTS.md`, `DESIGN.md`, and the product query/catalogue code.
 
-**Prompt:** Map the current and intended request paths across these repos.
-Separate working features from unfinished service queries and app integration.
-Identify the shared contract decisions. Do not edit files.
+**Prompt:** Help me specify price low-to-high/high-to-low sorting for Babazon.
+Inspect what already works. Ask about default order, equal prices, filter/reset
+behavior, accessibility, and failure cases. Keep search, category filters, cart,
+and checkout working. Do not edit code yet.
 
-**Expect:** A file-backed explanation of the `ProductCatalogue` boundary.
+**Expect:** A short, concrete specification with observable acceptance criteria.
 
-**Decide:** Verify it against the code. Inspect the models used; Fusion does not
-always use multiple models. Use the [references](../../README.md#references)
-for HydraFusion background and Benchmarks methodology.
+**Decide:** Agree on the behavior and record the outcome in a parent GitHub issue.
+Inspect the models used by Fusion; it may choose one model or several.
 
-### Review the Plan
+### Review in Plan
 
-Create the parent outcome issue in the app repo.
+**Use:** Switch to **Plan** below the prompt, or type `/plan`.
 
-**Use:** Copilot App Plan mode in the Project.
+**Attach:** The parent issue and agreed specification.
 
-**Attach:** The parent, both repo guides, and the service contract.
+**Prompt:** Plan this feature within one repo. Show the specification and tasks
+in the Plan canvas. Define exactly four children with dependencies, owned paths,
+prohibited paths, and focused checks. Do not implement.
 
-**Prompt:** Plan service-side search/filtering and an HTTP catalogue adapter
-for the existing app. Follow DESIGN.md: preserve the shopper journey, validate
-responses, bound requests, and show outages without local-data fallback.
-Propose exactly four repository-qualified children with dependencies, owned
-paths, prohibited paths, focused checks, and evidence. Do not implement.
+**Expect:** A reviewable Plan, not code changes.
 
-**Expect:** A reviewed Copilot App Plan with stable contracts before parallel work.
-
-**Decide:** Approve only when every file has one owner and success is observable.
+**Decide:** Open the Plan canvas, read it, and request one useful revision.
+Approve only after the specification and tasks agree:
 
 | Child | Owns | Depends on |
 |---|---|---|
-| 1. Contract | Service schemas, types, examples, contract tests; no HTTP behavior changes. | None |
-| 2. Service queries | Service routes, query API tests, smoke checks; no contract changes. | 1 |
-| 3. App integration | App adapter/configuration, startup/readiness, focused tests; no service or UI feature edits. | 1 |
-| 4. Integration | App two-process browser/contract checks and CI; no new features. | 2, 3 |
+| 1. Sorting contract | Shared types/schema and contract tests | None |
+| 2. Catalogue/API | Server behavior and catalogue/API tests | 1 |
+| 3. Sort control | Client code and UI tests | 1 |
+| 4. Integration | Browser checks and evidence | 2, 3 |
 
-Use `owner/repo#number` links. Keep the Lab 4 cache-header change for that lab.
+### Move to implementation
+
+After approval, choose **Autopilot** for clear tasks, or stay Interactive for
+closer steering. Continue in Lab 2. Modes and built-in skills are part of the
+App; no separate SDD framework or repository spec folder is required.
 
 ## Expected repository artifacts
 
-One parent, the reviewed Plan, four bounded children, and the two starting commits.
+One parent issue, the reviewed Copilot App Plan, and four bounded child issues.
 
 ## Verification
 
-Check repo identities, ownership, dependencies, and acceptance criteria before implementation.
+Check defaults, ties, filters, ownership, and tests before approving code work.
 
 ## Recovery
 
-Record unavailable Fusion/Projects access and use the pre-work fallback.
-Do not count a substitute session as use of the missing feature.
+If Fusion is unavailable, record that gap and use an allowed model. If the
+Plan canvas is unavailable, review the plan in the Session and record the limitation.
 
 ## Stretch
 
-Compare the read-only prompt with another model in a fresh session. Judge
-file-backed correctness, not one attempt's apparent speed.
+Use `/` to explore the App's built-in skills. Identify which one can coordinate
+the ready tasks in Lab 2.
+
+[README](../../README.md) | [Next: Multi-agent orchestration](02-multi-agent-orchestration.md)

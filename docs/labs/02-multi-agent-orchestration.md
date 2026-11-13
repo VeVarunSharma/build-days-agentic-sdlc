@@ -1,59 +1,58 @@
-# Lab 2: Bounded implementation
+# Lab 2: Multi-agent orchestration
 
 ## Outcome
 
-Use the Project to coordinate service and app work after the contract is stable.
+Coordinate bounded agents from one main Session in this repo.
 
 ## Prerequisites
 
-The parent, reviewed Plan, and four repository-qualified children exist.
+Lab 1's specification, reviewed Plan, and four child issues are ready.
 
 ## Participant steps
 
-**Use:** Interactive mode for the contract child.
+**Use:** Interactive mode in the main repository Session.
 
-**Attach:** The parent, Plan, child issue, both repo guides, and service contract.
+**Attach:** The parent, Plan, and sorting-contract child.
 
-**Prompt:** Stabilize schemas, types, and examples within this child's paths.
-Do not implement HTTP query behavior or the app adapter. Preserve browse/detail
-compatibility. Run focused contract checks and record the result.
+**Prompt:** Implement only the sorting contract within this child's owned paths.
+Do not implement sorting or UI behavior yet. Run focused contract checks.
 
-**Expect:** A reviewed, green foundation commit.
+**Expect:** A green foundation commit.
 
-**Decide:** Complete the dependency only after checking the diff and results.
+**Decide:** Review the diff and results before starting dependent tasks.
 
-**Use:** The Project conversation.
+**Use:** `/orchestrate` in the same Session.
 
-**Attach:** The foundation commit and ready service-query/app-integration issues.
+**Attach:** The foundation commit and ready API/UI child issues.
 
-**Prompt:** Start one isolated session per ready child in its target repo.
-Implement only the assigned behavior and tests. Stop on ownership or contract
-conflicts. Record results and prepare repo-specific changes for review.
+**Prompt:** Coordinate these two tasks in this repo only. Use one isolated
+session/worktree per child. Keep file ownership separate, stop on contract
+conflicts, and return changes with exact check results. Do not merge.
 
-**Expect:** Separate branches/worktrees without overlapping ownership.
+**Expect:** Separate API and UI changes based on the reviewed foundation.
 
-**Decide:** Use **Overview > Needs input** to resolve blockers and **Steer this
-session** to narrow work. Use Autopilot only for clear, approved tasks.
-
-The app child introduces `CATALOGUE_URL`; the starter does not support it yet.
-Keep the standalone in-memory path, but never silently fall back in service mode.
-Query HTTP expectations belong to the service-query child's API tests.
+**Decide:** Open each agent's Session to inspect its files and diff. Send one
+steering message that narrows a test or accessibility expectation. Use
+Autopilot only while the scope remains clear.
 
 ## Expected repository artifacts
 
-A foundation commit, separate service/app changes, and exact focused-check receipts.
+A foundation commit, API/UI changes, and focused-check results on the child issues.
 
 ## Verification
 
-Compare **repository plus path** across sessions. Review actual diffs and results;
-an agent's completion message is not evidence.
+Check that agents stayed in this repo and their owned paths. Review actual
+diffs and test output before integrating.
 
 ## Recovery
 
-Pause work if contracts change. Review only the offending session's patch;
-never discard another contributor's edits.
+Pause work if contracts change. Review the affected agent's patch without
+discarding another contributor's edits. If orchestration is unavailable,
+complete the children sequentially in the main Session.
 
 ## Stretch
 
-Try Fleet instead of the Project-led launch on a fresh exercise copy. Keep the
-same reviewed dependencies and ownership; never run duplicate owners together.
+Try `/fleet` for ready, non-overlapping tasks in a fresh exercise copy.
+Do not launch a second owner for work already running.
+
+[Previous: SDD](01-outcome-and-plan.md) | [README](../../README.md) | [Next: Build, test, deploy](03-build-test-deploy.md)
