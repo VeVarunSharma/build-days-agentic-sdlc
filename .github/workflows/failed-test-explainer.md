@@ -141,8 +141,8 @@ safe-output prefix identifies the source run. Include:
 - observed facts separately from possible causes, including a faulty test
   expectation rather than assuming the app is broken;
 - one next diagnostic step and concrete regression-test suggestions;
-- the catalogue-service commit only if the run's evidence supplies it;
-  otherwise explicitly report that cross-repo provenance is missing.
+- the tested repository commit and any missing evidence needed to reproduce
+  the failure.
 
 If evidence is inaccessible, use missing-data reporting without creating an
 issue or inventing a diagnosis. Do not copy secrets or full logs into the issue.

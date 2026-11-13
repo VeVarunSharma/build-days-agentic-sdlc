@@ -12,16 +12,6 @@
   "repository": "octo-workshop/team-01",
   "provenanceVerified": true,
   "targetRevision": "1111111111111111111111111111111111111111",
-  "catalogue": {
-    "repository": {
-      "fullName": "octo-workshop/team-01-catalogue",
-      "issuesEnabled": true,
-      "actionsEnabled": true
-    },
-    "provenanceVerified": true,
-    "revisionContainsExpected": false,
-    "targetRevision": "2222222222222222222222222222222222222222"
-  },
   "issuesEnabled": true,
   "actionsEnabled": true,
   "expectedOidcPrefix": "repo:octo-workshop@9876543/team-01@123456789",
