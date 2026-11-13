@@ -33,9 +33,13 @@ choosing.
 - Split implementation into exactly four bounded child issues with explicit
   dependencies plus owned and prohibited paths.
 - Stabilize shared contracts and foundations before using Fleet.
-- Use Projects for the main participant path; Fleet is an optional stretch.
+- Open this repository through Sessions in the Copilot App, not Projects.
+- Use native Interactive, Plan, and Autopilot modes with Fusion. Review the
+  specification and tasks in the Plan canvas before implementation.
 - Use isolated sessions or worktrees for parallel tasks and keep ownership
   non-overlapping.
+- Keep all required labs in this repo. The optional capstone may use a
+  developer-chosen use case; do not make it a prerequisite.
 - Link pull requests to their parent and child issues and record exact
   validation results.
 - Treat deterministic CI, review, security, and deployment checks as durable
