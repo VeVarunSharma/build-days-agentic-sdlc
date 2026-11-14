@@ -75,7 +75,7 @@ separate operational follow-up.
 | `src/server/` | API, catalogue/seed data, logging, operations |
 | `src/client/` | Storefront, cart, simulated checkout |
 | `tests/` | Unit, API, documentation, and browser checks |
-| `docs/labs/` | Five labs, wrap-up, optional capstone |
+| `docs/labs/` | Five core labs followed by the optional capstone |
 | `docs/assets/` | Workshop artwork |
 | `.github/` | CI, security, deployment, agent guidance, issue/PR forms |
 | `scripts/` | Instructor preparation and preflight |

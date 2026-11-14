@@ -44,4 +44,4 @@ framework is required.
 
 Ask another participant to try it and record one improvement.
 
-[Previous: Wrap-up](workshop-wrap-and-evidence.md) | [README](../../README.md)
+[Previous: Agentic workflows](05-gh-aw.md) | [README](../../README.md)

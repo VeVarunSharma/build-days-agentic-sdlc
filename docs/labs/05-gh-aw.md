@@ -92,4 +92,4 @@ so keep diagnostic issue publishers disabled and errors in Actions logs.
 Issue-clarifier is an optional example.
 </details>
 
-[Previous: Cloud agent](04-cloud-agent.md) | [README](../../README.md) | [Next: Wrap-up](workshop-wrap-and-evidence.md)
+[Previous: Cloud agent](04-cloud-agent.md) | [README](../../README.md) | [Next: Optional capstone](optional-capstone.md)

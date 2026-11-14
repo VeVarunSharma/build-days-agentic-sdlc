@@ -10,9 +10,8 @@ const coreLabs = [
   ["docs/labs/04-cloud-agent.md", "Cloud agent"],
   ["docs/labs/05-gh-aw.md", "Agentic workflows"],
 ] as const;
-const wrap = "docs/labs/workshop-wrap-and-evidence.md";
 const capstone = "docs/labs/optional-capstone.md";
-const participantLabs = [...coreLabs.map(([path]) => path), wrap, capstone];
+const participantLabs = [...coreLabs.map(([path]) => path), capstone];
 const ownedTextFiles = [
   "README.md", "AGENTS.md", "DESIGN.md", ...participantLabs,
   ".github/copilot-instructions.md",
@@ -39,8 +38,12 @@ function listMarkdownFiles(directory: string, prefix = ""): string[] {
 }
 
 describe("Session-first workshop documentation", () => {
-  it("keeps five core labs, a wrap-up, and a separate optional capstone", () => {
+  it("keeps five core labs followed by the optional capstone", () => {
     expect(listMarkdownFiles("docs")).toEqual([...participantLabs].sort());
+    const readme = read("README.md");
+    const indexLinks = [...readme.matchAll(/^\| \[[^\]]+\]\((docs\/labs\/[^)]+)\)/gm)]
+      .map((match) => match[1]);
+    expect(indexLinks).toEqual(participantLabs);
     const text = prose(capstone);
     expect(text).toContain("advanced participants");
     expect(text).toContain("not required for workshop completion");
@@ -69,7 +72,7 @@ describe("Session-first workshop documentation", () => {
     if (index < participantLabs.length - 1) expect(text).toContain(`](${participantLabs[index + 1]!.split("/").at(-1)})`);
   });
 
-  it("puts the lab index before setup and includes the real banner below it", () => {
+  it("puts the real banner first, without ASCII, and keeps labs before setup", () => {
     const readme = read("README.md");
     const setup = readme.indexOf("## Open your repo in a Session");
     expect(setup).toBeGreaterThan(0);
@@ -79,17 +82,11 @@ describe("Session-first workshop documentation", () => {
       expect(position).toBeGreaterThan(-1);
       expect(position).toBeLessThan(setup);
     }
-    const ascii = readme.match(/^```text\r?\n([\s\S]*?)\r?\n```/);
-    expect(ascii).not.toBeNull();
-    expect(ascii![1]).toContain("BUILD DAYS");
-    for (const line of ascii![1]!.split(/\r?\n/)) {
-      expect(line).toMatch(/^[\x20-\x7e]*$/);
-      expect(line.length).toBeLessThanOrEqual(64);
-    }
-    const image = readme.match(/!\[([^\]]+)\]\((docs\/assets\/build-days-banner\.png)\)/);
+    expect(readme).not.toContain("```text");
+    const image = readme.match(/^!\[([^\]]+)\]\((docs\/assets\/build-days-banner\.png)\)/);
     expect(image).not.toBeNull();
     expect(image![1]).toContain("Build Days");
-    expect(readme.indexOf(image![0])).toBeGreaterThan(readme.indexOf(`](${capstone})`));
+    expect(readme.indexOf(image![0])).toBe(0);
     const bytes = readFileSync(resolve(root, image![2]!));
     expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     expect(bytes.readUInt32BE(16)).toBeGreaterThan(0);

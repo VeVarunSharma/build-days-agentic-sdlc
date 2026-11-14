@@ -1,9 +1,4 @@
-```text
-+------------------------------------------+
-|  </>  BUILD DAYS                         |
-|       GitHub Copilot App + Agentic SDLC  |
-+------------------------------------------+
-```
+![Build Days banner with Microsoft and GitHub logos and colored paths converging](docs/assets/build-days-banner.png)
 
 # Build Days: Agentic SDLC
 
@@ -23,10 +18,7 @@ Follow these in order. Each lab says where to work and what to check.
 | [3. Build, test, deploy](docs/labs/03-build-test-deploy.md) | Terminal, browser, CI; optional Azure deployment |
 | [4. Cloud agent](docs/labs/04-cloud-agent.md) | GitHub issue and pull request |
 | [5. Agentic workflows](docs/labs/05-gh-aw.md) | Workflow Markdown and GitHub Actions |
-| [Wrap-up](docs/labs/workshop-wrap-and-evidence.md) | Review and handoff |
 | [Optional capstone: build your own](docs/labs/optional-capstone.md) | Your own app feature, workflow, or use case |
-
-![Build Days banner with Microsoft and GitHub logos and colored paths converging](docs/assets/build-days-banner.png)
 
 ## Open your repo in a Session
 
