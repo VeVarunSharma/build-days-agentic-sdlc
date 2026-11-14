@@ -10,8 +10,6 @@ const readyFixture = resolve(root, "tests", "fixtures", "preflight-ready.json");
 const preparedFixture = resolve(root, "tests", "fixtures", "team-repo-prepared.json");
 const unpreparedFixture = resolve(root, "tests", "fixtures", "team-repo-unprepared.json");
 const revision = "0123456789abcdef0123456789abcdef01234567";
-const catalogueRevision = "a".repeat(40);
-const catalogueRepository = "octo-workshop/team-01-catalogue";
 const subscription = "00000000-0000-0000-0000-000000000001";
 
 beforeAll(() => mkdirSync(outputDirectory, { recursive: true }));
@@ -26,10 +24,6 @@ function preflightArgs(fixture: string, output: string, includeAzure = true) {
     "octo-workshop/team-01",
     "-ExpectedRevision",
     revision,
-    "-CatalogueRepository",
-    catalogueRepository,
-    "-CatalogueExpectedRevision",
-    catalogueRevision,
     ...(includeAzure ? [
       "-IncludeAzure",
       "-AzureSubscriptionId",
@@ -49,8 +43,6 @@ function bashPreflightArgs(fixture: string, output: string, includeAzure = true)
     "./scripts/verify-env.sh",
     "--repository", "octo-workshop/team-01",
     "--expected-revision", revision,
-    "--catalogue-repository", catalogueRepository,
-    "--catalogue-expected-revision", catalogueRevision,
     ...(includeAzure ? [
       "--include-azure",
       "--azure-subscription-id", subscription,
@@ -76,7 +68,6 @@ describe("environment preflight", () => {
 $ErrorActionPreference = 'Stop'
 $IncludeAzure = $false
 $Repository = 'octo-workshop/team-01'
-$CatalogueRepository = 'octo-workshop/team-01-catalogue'
 function git {
   if ($args.Count -ne 1 -or $args[0] -ne '--version') { throw 'Incorrect git version arguments' }
   $global:LASTEXITCODE = 0
@@ -158,7 +149,7 @@ exit 0
     expect(report.results).toContainEqual(expect.objectContaining({ id: "copilot.app", status: "MANUAL" }));
   }, 90_000);
 
-  it("supports local-only participation and new template history in both shells", () => {
+  it("supports one repository without Azure or a Project in both shells", () => {
     const fixture = writeDerivedFixture("local-only", (state) => {
       (state.tools as Record<string, unknown>).az = null;
       (state.tools as Record<string, unknown>).copilot = null;
@@ -176,16 +167,17 @@ exit 0
       const report = JSON.parse(readFileSync(output, "utf8")) as {
         summary: { fail: number };
         results: Array<{ id: string; status: string }>;
-        catalogueRepository: string;
-        sourceRevisions: { catalogue: string };
-        startingCommits: { catalogue: string };
+        repository: string;
+        sourceRevision: string;
+        startingCommit: string;
       };
       expect(report.summary.fail).toBe(0);
-      expect(report.catalogueRepository).toBe(catalogueRepository);
-      expect(report.sourceRevisions.catalogue).toBe(catalogueRevision);
-      expect(report.startingCommits.catalogue).toBe("2".repeat(40));
-      expect(report.results.some(({ id }) => /azure|oidc|environment|tool\.az/.test(id))).toBe(false);
-      for (const id of ["copilot.app", "copilot.project", "copilot.fusion", "ghaw.engine"]) {
+      expect(report.repository).toBe("octo-workshop/team-01");
+      expect(report.sourceRevision).toBe(revision);
+      expect(report.startingCommit).toBe("1".repeat(40));
+      expect(report).not.toHaveProperty("catalogueRepository");
+      expect(report.results.some(({ id }) => /azure|oidc|environment|tool\.az|catalogue|project/.test(id))).toBe(false);
+      for (const id of ["copilot.app", "copilot.session", "copilot.fusion", "ghaw.engine"]) {
         expect(report.results).toContainEqual(expect.objectContaining({ id, status: "MANUAL" }));
       }
       classifications.push(report.results.map(({ id, status }) => `${id}:${status}`).sort());
@@ -194,19 +186,13 @@ exit 0
   }, 90_000);
 
   it.each([
-    ["identity", (catalogue: Record<string, unknown>) => {
-      (catalogue.repository as Record<string, unknown>).fullName = "octo-workshop/wrong-service";
-    }, "catalogue.identity"],
-    ["contents", (catalogue: Record<string, unknown>) => { catalogue.provenanceVerified = false; }, "catalogue.template-revision"],
-    ["actions", (catalogue: Record<string, unknown>) => {
-      (catalogue.repository as Record<string, unknown>).actionsEnabled = false;
-    }, "catalogue.actions"],
-  ])("blocks invalid companion %s in both shells", (name, update, expectedId) => {
-    const fixture = writeDerivedFixture(`catalogue-${name}`, (state) => {
-      update(state.catalogue as Record<string, unknown>);
-    });
+    ["identity", (state: Record<string, unknown>) => { state.repository = "octo-workshop/wrong-app"; }, "repository.identity"],
+    ["contents", (state: Record<string, unknown>) => { state.provenanceVerified = false; }, "repository.template-revision"],
+    ["actions", (state: Record<string, unknown>) => { state.actionsEnabled = false; }, "github.actions"],
+  ])("blocks invalid repository %s in both shells", (name, update, expectedId) => {
+    const fixture = writeDerivedFixture(`repository-${name}`, update);
     for (const shell of ["pwsh", "bash"]) {
-      const output = resolve(outputDirectory, `catalogue-${name}-${shell}.json`);
+      const output = resolve(outputDirectory, `repository-${name}-${shell}.json`);
       const args = shell === "pwsh"
         ? preflightArgs(fixture, output, false)
         : bashPreflightArgs(fixture, output, false);
@@ -231,10 +217,6 @@ function preparationArgs(fixture: string, output: string, includeAzure = true) {
     "octo-workshop/workshop-template",
     "-TemplateRevision",
     revision,
-    "-CatalogueRepository",
-    catalogueRepository,
-    "-CatalogueTemplateRevision",
-    catalogueRevision,
     "-TeamSize",
     "3",
     "-TeamId",
@@ -275,13 +257,12 @@ $definition = $ast.Find({
   $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-StarterGaps'
 }, $true)
 . ([scriptblock]::Create($definition.Extent.Text))
-$baseline = @{ ServerSource = 'health and readiness'; IndexSource = 'createCatalogue()'; CatalogueSource = 'new InMemoryProductCatalogue()' }
+$baseline = @{ ServerSource = 'health and readiness'; ContractsSource = 'q: z.string()' }
 $cases = @(
   (Test-StarterGaps @baseline),
-  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource 'process.env.CATALOGUE_URL' -CatalogueSource $baseline.CatalogueSource),
-  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource $baseline.IndexSource -CatalogueSource 'CATALOGUE_URL; new InMemoryProductCatalogue()'),
-  (Test-StarterGaps -ServerSource $baseline.ServerSource -IndexSource $baseline.IndexSource -CatalogueSource 'new HttpCatalogue()'),
-  (Test-StarterGaps -ServerSource 'Cache-Control: no-store' -IndexSource $baseline.IndexSource -CatalogueSource $baseline.CatalogueSource)
+  (Test-StarterGaps -ServerSource $baseline.ServerSource -ContractsSource 'sort: z.enum(values)'),
+  (Test-StarterGaps -ServerSource $baseline.ServerSource -ContractsSource 'sort?: SortOrder'),
+  (Test-StarterGaps -ServerSource 'Cache-Control: no-store' -ContractsSource $baseline.ContractsSource)
 )
 $cases | ConvertTo-Json -Compress
 `;
@@ -289,28 +270,28 @@ $cases | ConvertTo-Json -Compress
       cwd: root, encoding: "utf8",
     }));
     expect(results).toEqual([
-      { appIntegrationBaselineGapVerified: true, cloudAgentBaselineGapVerified: true },
-      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
-      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
-      { appIntegrationBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
-      { appIntegrationBaselineGapVerified: true, cloudAgentBaselineGapVerified: false },
+      { sortingBaselineGapVerified: true, cloudAgentBaselineGapVerified: true },
+      { sortingBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
+      { sortingBaselineGapVerified: false, cloudAgentBaselineGapVerified: true },
+      { sortingBaselineGapVerified: true, cloudAgentBaselineGapVerified: false },
     ]);
   }, 20_000);
 
-  it("plans both repos without the retired security exercise", () => {
+  it("prepares one repo and seeds sorting without the retired security exercise", () => {
     const output = resolve(outputDirectory, "unprepared.json");
     execFileSync("pwsh", preparationArgs(unpreparedFixture, output), { cwd: root });
     const report = JSON.parse(readFileSync(output, "utf8"));
     expect(report.teamSize).toBe(3);
-    expect(report.catalogueRepository).toBe(catalogueRepository);
+    expect(report.target).toBe("octo-workshop/team-01");
+    expect(report).not.toHaveProperty("catalogueRepository");
     expect(JSON.stringify(report.operations)).not.toContain("security exercise");
     expect(report.operations).toContainEqual(expect.objectContaining({
       action: "VERIFY",
       resource: "repository topology",
-      detail: expect.stringContaining(catalogueRepository),
+      detail: expect.stringContaining("one repository octo-workshop/team-01"),
     }));
     expect(report.operations).toContainEqual(
-      expect.objectContaining({ action: "CREATE", resource: "issue:Babazon: product search and category filtering" }),
+      expect.objectContaining({ action: "CREATE", resource: "issue:KosKo: product price sorting" }),
     );
   }, 20_000);
 
@@ -350,19 +331,20 @@ $cases | ConvertTo-Json -Compress
     expect(report.azureScope).toBeNull();
     expect(report.environments).toEqual([]);
     expect(report.operations.some(({ resource }) => /environment|oidc/i.test(resource))).toBe(false);
-    expect(report.operations).toContainEqual(expect.objectContaining({ resource: "copilot project" }));
+    expect(report.operations).toContainEqual(expect.objectContaining({ resource: "copilot session" }));
+    expect(report.operations.some(({ resource }) => /catalogue|project/i.test(resource))).toBe(false);
   }, 20_000);
 
-  it("rejects a companion whose starter contents changed", () => {
-    const fixture = writeDerivedFixture("changed-catalogue", (state) => {
+  it("rejects a starter whose approved contents changed", () => {
+    const fixture = writeDerivedFixture("changed-starter", (state) => {
       Object.assign(state, JSON.parse(readFileSync(unpreparedFixture, "utf8")));
-      (state.catalogue as Record<string, unknown>).provenanceVerified = false;
+      state.provenanceVerified = false;
     });
-    const run = spawnSync("pwsh", preparationArgs(fixture, resolve(outputDirectory, "changed-catalogue.json"), false), {
+    const run = spawnSync("pwsh", preparationArgs(fixture, resolve(outputDirectory, "changed-starter.json"), false), {
       cwd: root, encoding: "utf8",
     });
     expect(run.status).not.toBe(0);
-    expect(stripVTControlCharacters(`${run.stdout}${run.stderr}`)).toContain("Catalogue template provenance failed");
+    expect(stripVTControlCharacters(`${run.stdout}${run.stderr}`)).toContain("Template provenance failed");
   }, 20_000);
 
   it("rejects wildcard or name-only federation", () => {
@@ -398,19 +380,19 @@ $cases | ConvertTo-Json -Compress
     );
   }, 20_000);
 
-  it("rejects a pre-solved app integration before preparation writes", () => {
-    const fixture = writeDerivedFixture("completed-app-integration", (state) => {
+  it("rejects a pre-solved sorting contract before preparation writes", () => {
+    const fixture = writeDerivedFixture("completed-sorting", (state) => {
       Object.assign(state, JSON.parse(readFileSync(unpreparedFixture, "utf8")));
-      state.appIntegrationBaselineGapVerified = false;
+      state.sortingBaselineGapVerified = false;
     });
     const run = spawnSync(
       "pwsh",
-      preparationArgs(fixture, resolve(outputDirectory, "completed-app-integration-report.json"), false),
+      preparationArgs(fixture, resolve(outputDirectory, "completed-sorting-report.json"), false),
       { cwd: root, encoding: "utf8" },
     );
     expect(run.status).not.toBe(0);
     const output = stripVTControlCharacters(`${run.stdout}${run.stderr}`).replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ");
-    expect(output).toContain("leave CATALOGUE_URL integration for learners");
+    expect(output).toContain("leave the sort query contract for learners");
     expect(run.stdout).not.toContain("[CREATE]");
     expect(run.stdout).not.toContain("[UPDATE]");
   }, 20_000);

@@ -1,4 +1,4 @@
-# Lab 5: Automate QA
+# Lab 5: Agentic workflows
 
 ## Outcome
 
@@ -7,7 +7,7 @@ and suggest regression coverage. Deterministic CI still decides pass/fail.
 
 ## Prerequisites
 
-Complete [pre-work](../../README.md#pre-work), including pinned GH-AW **v1.0.1**
+Complete [setup](../../README.md#before-lab-1), including pinned GH-AW **v1.0.1**
 and verified inference access. The reviewed Markdown/lock workflow must be
 available in your repo before dispatch.
 
@@ -15,7 +15,8 @@ available in your repo before dispatch.
 
 ### Inspect and compile
 
-**Use:** App Interactive mode in the app-repo session.
+**Use:** Interactive mode in your repository Session. Open the workflow Markdown
+in the file editor and use the terminal to compile it.
 
 **Attach:** `.github/workflows/failed-test-explainer.md`, `ci.yml`, and the Plan.
 
@@ -37,7 +38,7 @@ edit the lock by hand. See the [GA/setup references](../../README.md#references)
 
 ### Trigger and inspect
 
-**Use:** A disposable branch and GitHub Actions.
+**Use:** A disposable branch in this repo, then **GitHub > Actions** to watch the run.
 
 **Attach:** `tests/e2e/catalogue.spec.ts` and this exercise boundary.
 
@@ -88,5 +89,7 @@ The triage workflow itself remains read-only.
 The automatic trigger observes failed `Application CI` on `main`; manual replay
 supports the exercise branch. The compiler retains reporting-job write scope,
 so keep diagnostic issue publishers disabled and errors in Actions logs.
-Project automations are not GH-AW. Issue-clarifier is an optional example.
+Issue-clarifier is an optional example.
 </details>
+
+[Previous: Cloud agent](04-cloud-agent.md) | [README](../../README.md) | [Next: Optional capstone](optional-capstone.md)

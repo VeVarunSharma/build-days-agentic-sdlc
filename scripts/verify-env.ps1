@@ -3,9 +3,6 @@ param(
     [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$Repository,
     [ValidatePattern("^[0-9a-fA-F]{40}$")][string]$ExpectedRevision,
     [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$TemplateRepository = "VeVarunSharma/build-days-agentic-sdlc",
-    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueRepository,
-    [ValidatePattern("^[0-9a-fA-F]{40}$")][string]$CatalogueExpectedRevision,
-    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueTemplateRepository = "VeVarunSharma/babazon-catalogue-service",
     [switch]$IncludeAzure,
     [string]$AzureSubscriptionId,
     [string]$AzureResourceGroup,
@@ -19,11 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 $results = [System.Collections.Generic.List[object]]::new()
 
-if (!$ExpectedRevision -or !$CatalogueRepository -or !$CatalogueExpectedRevision) {
-    throw "Preflight requires -ExpectedRevision, -CatalogueRepository, and -CatalogueExpectedRevision. Use full approved source SHAs."
-}
-if ($Repository -and $Repository -eq $CatalogueRepository) {
-    throw "The app and catalogue must be different repositories."
+if (!$ExpectedRevision) {
+    throw "Preflight requires -ExpectedRevision. Use the full approved starter SHA."
 }
 if ($IncludeAzure -and (!$AzureSubscriptionId -or !$AzureResourceGroup)) {
     throw "-IncludeAzure requires -AzureSubscriptionId and -AzureResourceGroup."
@@ -49,7 +43,7 @@ function Add-Result {
 function Invoke-JsonCommand {
     param([string]$File, [string[]]$Arguments)
     $output = & $File @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "$File $($Arguments -join ' ') failed. Check access to both repositories and their Actions policy." }
+    if ($LASTEXITCODE -ne 0) { throw "$File $($Arguments -join ' ') failed. Check repository access and Actions policy." }
     return ($output | Out-String | ConvertFrom-Json)
 }
 
@@ -86,9 +80,6 @@ function Get-LiveState {
         $script:Repository = Invoke-JsonCommand "gh" @("repo", "view", "--json", "nameWithOwner") | Select-Object -ExpandProperty nameWithOwner
     }
     $state.repository = $Repository
-    if ($Repository -eq $CatalogueRepository) {
-        throw "The app and catalogue must be different repositories."
-    }
 
     if ($Repository -and $state.ghAuthenticated) {
         $repo = Invoke-JsonCommand "gh" @("api", "repos/$Repository")
@@ -97,19 +88,6 @@ function Get-LiveState {
         $head = Invoke-JsonCommand "gh" @("api", "repos/$Repository/commits/$($repo.default_branch)")
         $state.provenanceVerified = [string]$source.commit.tree.sha -eq [string]$head.commit.tree.sha
         $state.targetRevision = [string]$head.sha
-        $catalogue = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository")
-        $catalogueSource = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueTemplateRepository/commits/$CatalogueExpectedRevision")
-        $catalogueHead = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository/commits/$($catalogue.default_branch)")
-        $catalogueActions = Invoke-JsonCommand "gh" @("api", "repos/$CatalogueRepository/actions/permissions")
-        $state.catalogue = [ordered]@{
-            repository = [ordered]@{
-                fullName = [string]$catalogue.full_name
-                issuesEnabled = [bool]$catalogue.has_issues
-                actionsEnabled = [bool]$catalogueActions.enabled
-            }
-            provenanceVerified = [string]$catalogueSource.commit.tree.sha -eq [string]$catalogueHead.commit.tree.sha
-            targetRevision = [string]$catalogueHead.sha
-        }
         $state.repoExists = $true
         $state.issuesEnabled = [bool]$repo.has_issues
         $actions = Invoke-JsonCommand "gh" @("api", "repos/$Repository/actions/permissions")
@@ -220,25 +198,6 @@ foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnable
     }
 }
 
-$actualCatalogue = [string]$state.catalogue.repository.fullName
-if ($actualCatalogue -eq $CatalogueRepository -and $actualCatalogue -ne $actualRepo) {
-    Add-Result PASS "catalogue.identity" $actualCatalogue $CatalogueRepository ""
-} else {
-    Add-Result FAIL "catalogue.identity" $actualCatalogue $CatalogueRepository "Create your own catalogue template copy and pass its owner/name, distinct from the app repo."
-}
-if ($state.catalogue.provenanceVerified) {
-    Add-Result PASS "catalogue.template-revision" $CatalogueExpectedRevision "fresh service tree matches the approved source tree; ancestry is not required" ""
-} else {
-    Add-Result FAIL "catalogue.template-revision" "starter tree does not match" $CatalogueExpectedRevision "Use the approved service template contents. Template copies have new commit histories; do not require source-commit ancestry."
-}
-foreach ($feature in @(@("issues", "issuesEnabled"), @("actions", "actionsEnabled"))) {
-    if ($state.catalogue -and $state.catalogue.repository -and $state.catalogue.repository[$feature[1]]) {
-        Add-Result PASS "catalogue.$($feature[0])" "enabled" "enabled" ""
-    } else {
-        Add-Result FAIL "catalogue.$($feature[0])" "disabled or unavailable" "enabled" "Enable GitHub $($feature[0]) for $CatalogueRepository."
-    }
-}
-
 if ($IncludeAzure) {
     if ($state.immutableOidc) {
         Add-Result PASS "github.oidc-subject" $state.oidcPrefix "immutable numeric owner/repository prefix" ""
@@ -277,8 +236,8 @@ if ($state.cloudValidation) {
 }
 }
 
-Add-Result MANUAL "copilot.app" "shell detection is not reliable" "Copilot App installed, signed in, and able to open both repositories" "Open both participant copies in the App and record this check manually."
-Add-Result MANUAL "copilot.project" "UI capability must be checked" "one Copilot Project contains both participant repositories" "Create the Project and confirm both repositories in its context; report unavailable preview access honestly."
+Add-Result MANUAL "copilot.app" "shell detection is not reliable" "Copilot App installed and signed in" "Open the App and record this check manually."
+Add-Result MANUAL "copilot.session" "UI capability must be checked" "repository Session with files and Plan canvas" "Use Sessions > + > Start session in, select your repo, and confirm the file editor and Plan canvas."
 Add-Result MANUAL "copilot.fusion" "model availability must be checked" "a bounded Fusion prompt has been tried" "Select an available Fusion effort level, run the opening prompt, and record the actual capability."
 Add-Result MANUAL "ghaw.engine" "billing and policy must be checked" "eligible per-run Copilot inference before Lab 5" "Confirm organization Copilot billing and Actions policy; do not add a long-lived token workaround."
 
@@ -286,9 +245,8 @@ $document = [ordered]@{
     generatedAt = (Get-Date).ToUniversalTime().ToString("o")
     evidenceSource = if ($FixturePath) { "fixture" } else { "live" }
     repository = $actualRepo
-    catalogueRepository = $actualCatalogue
-    sourceRevisions = [ordered]@{ app = $ExpectedRevision; catalogue = $CatalogueExpectedRevision }
-    startingCommits = [ordered]@{ app = [string]$state.targetRevision; catalogue = [string]$state.catalogue.targetRevision }
+    sourceRevision = $ExpectedRevision
+    startingCommit = [string]$state.targetRevision
     includeAzure = [bool]$IncludeAzure
     results = $results
     summary = [ordered]@{

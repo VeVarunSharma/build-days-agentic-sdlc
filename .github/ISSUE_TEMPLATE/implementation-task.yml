@@ -22,7 +22,7 @@ body:
     attributes:
       label: Target repository
       description: Use owner/repo. Each task owns paths in one explicit repository.
-      placeholder: YOUR-OWNER/babazon-catalogue
+      placeholder: YOUR-OWNER/build-days-agentic-sdlc
     validations:
       required: true
   - type: textarea
@@ -64,4 +64,4 @@ body:
     id: receipt
     attributes:
       label: Execution receipt
-      description: On completion, add the repository, branch, commit or PR, commands, results, and blockers. Integration receipts need both app/service SHAs.
+      description: On completion, add the branch, tested commit or PR, exact commands/results, and blockers.

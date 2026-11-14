@@ -5,12 +5,14 @@ const productCard = (page: Page, name: string) =>
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
 
-test.describe("Babazon catalogue", () => {
+test.describe("KosKo catalogue", () => {
   test("loads the deterministic product catalogue", async ({ page }) => {
     await page.goto("/");
 
+    await expect(page).toHaveTitle("KosKo");
+    await expect(page.getByRole("link", { name: "KosKo home" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Babazon goods" }),
+      page.getByRole("heading", { name: "KosKo goods" }),
     ).toBeVisible();
     await expect(page.getByText("8 products", { exact: true })).toBeVisible();
     await expect(
@@ -102,7 +104,7 @@ test.describe("Babazon catalogue", () => {
     ).toBeVisible();
     await expect(
       page.getByText(
-        "Thanks, Taylor Shopper! Your simulated Babazon order is confirmed.",
+        "Thanks, Taylor Shopper! Your simulated KosKo order is confirmed.",
       ),
     ).toBeVisible();
     await expect(page.getByText("Your cart is empty.")).toBeVisible();

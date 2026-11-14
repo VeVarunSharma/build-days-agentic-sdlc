@@ -116,7 +116,7 @@ export function App() {
     setCheckoutErrors(errors);
     if (Object.keys(errors).length > 0 || cart.length === 0) return;
     setConfirmation(
-      `Thanks, ${checkout.name.trim()}! Your simulated Babazon order is confirmed.`,
+      `Thanks, ${checkout.name.trim()}! Your simulated KosKo order is confirmed.`,
     );
     setCart([]);
     setCheckout(emptyCheckout);
@@ -129,8 +129,8 @@ export function App() {
   return (
     <>
       <header className="site-header">
-        <a className="brand" href="#catalogue" aria-label="Babazon home">
-          <span aria-hidden="true">B</span>Babazon
+        <a className="brand" href="#catalogue" aria-label="KosKo home">
+          <span aria-hidden="true">K</span>KosKo
         </a>
         <p>Curious finds for everyday adventures.</p>
         <a className="cart-link" href="#cart">
@@ -154,7 +154,7 @@ export function App() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Browse the collection</p>
-              <h2 id="catalogue-title">Babazon goods</h2>
+              <h2 id="catalogue-title">KosKo goods</h2>
             </div>
             <span aria-live="polite">
               {!loading && !loadError

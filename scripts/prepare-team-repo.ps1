@@ -4,10 +4,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+$")][string]$Repository,
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$TemplateRepository,
     [Parameter(Mandatory)][ValidatePattern("^[0-9a-fA-F]{40}$")][string]$TemplateRevision,
-    [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueRepository,
-    [ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$CatalogueTemplateRepository = "VeVarunSharma/babazon-catalogue-service",
-    [Parameter(Mandatory)][ValidatePattern("^[0-9a-fA-F]{40}$")][string]$CatalogueTemplateRevision,
-    [string]$Outcome = "Babazon product search and category filtering across app and catalogue service",
+    [string]$Outcome = "KosKo product price sorting",
     [Parameter(Mandatory)][ValidateRange(2, 3)][int]$TeamSize,
     [Parameter(Mandatory)][ValidatePattern("^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$")][string]$TeamId,
     [switch]$IncludeAzure,
@@ -29,11 +26,8 @@ $operations = [System.Collections.Generic.List[object]]::new()
 $activeEnvironments = @()
 if ($IncludeAzure) { $activeEnvironments = @($Environments) }
 if ($WhatIfPreference) { $DryRun = $true }
-if ($CatalogueRepository -eq $target) {
-    throw "The app and catalogue must be different repositories."
-}
-if ($target -eq $TemplateRepository -or $CatalogueRepository -eq $CatalogueTemplateRepository) {
-    throw "Prepare participant copies, not the upstream app or catalogue template."
+if ($target -eq $TemplateRepository) {
+    throw "Prepare a participant copy, not the upstream starter."
 }
 if ($IncludeAzure -and (!$AzureSubscriptionId -or !$AzureTenantId -or !$AzureClientId -or !$AzureResourceGroup -or !$EntraApplicationObjectId)) {
     throw "-IncludeAzure requires the subscription, tenant, client, resource group, and Entra application object IDs."
@@ -61,15 +55,10 @@ function Invoke-Gh {
 function Test-StarterGaps {
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ServerSource,
-        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$IndexSource,
-        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$CatalogueSource
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ContractsSource
     )
     return [ordered]@{
-        appIntegrationBaselineGapVerified = (
-            $IndexSource -notmatch 'CATALOGUE_URL' -and
-            $CatalogueSource -notmatch 'CATALOGUE_URL' -and
-            $CatalogueSource -match 'new\s+InMemoryProductCatalogue\s*\('
-        )
+        sortingBaselineGapVerified = $ContractsSource -notmatch '\bsort\s*\??\s*:'
         cloudAgentBaselineGapVerified = $ServerSource -notmatch 'no-store'
     }
 }
@@ -85,19 +74,15 @@ function Get-LiveState {
     $repo = Invoke-GhJson @("api", "repos/$target")
     $templateCommit = Invoke-GhJson @("api", "repos/$TemplateRepository/commits/$TemplateRevision")
     $targetCommit = Invoke-GhJson @("api", "repos/$target/commits/$($repo.default_branch)")
-    $catalogueRepo = Invoke-GhJson @("api", "repos/$CatalogueRepository")
-    $catalogueActions = Invoke-GhJson @("api", "repos/$CatalogueRepository/actions/permissions")
-    $catalogueSource = Invoke-GhJson @("api", "repos/$CatalogueTemplateRepository/commits/$CatalogueTemplateRevision")
-    $catalogueHead = Invoke-GhJson @("api", "repos/$CatalogueRepository/commits/$($catalogueRepo.default_branch)")
     $sources = @{}
-    foreach ($path in @("src/server/app.ts", "src/server/index.ts", "src/server/catalogue.ts")) {
+    foreach ($path in @("src/server/app.ts", "src/shared/contracts.ts")) {
         $payload = Invoke-GhJson @("api", "repos/$TemplateRepository/contents/$path`?ref=$TemplateRevision")
         $sources[$path] = [Text.Encoding]::UTF8.GetString(
             [Convert]::FromBase64String(([string]$payload.content -replace "\s", ""))
         )
     }
     $gaps = Test-StarterGaps -ServerSource $sources["src/server/app.ts"] `
-        -IndexSource $sources["src/server/index.ts"] -CatalogueSource $sources["src/server/catalogue.ts"]
+        -ContractsSource $sources["src/shared/contracts.ts"]
     $actions = Invoke-GhJson @("api", "repos/$target/actions/permissions")
     $variableData = Invoke-GhJson @("api", "--paginate", "repos/$target/actions/variables")
     $environmentData = [pscustomobject]@{ environments = @() }
@@ -139,17 +124,7 @@ function Get-LiveState {
         provenanceVerified = [string]$templateCommit.commit.tree.sha -eq [string]$targetCommit.commit.tree.sha
         sourceTree = [string]$templateCommit.commit.tree.sha
         targetRevision = [string]$targetCommit.sha
-        catalogue = [ordered]@{
-            repository = [ordered]@{
-                fullName = [string]$catalogueRepo.full_name
-                issuesEnabled = [bool]$catalogueRepo.has_issues
-                actionsEnabled = [bool]$catalogueActions.enabled
-            }
-            provenanceVerified = [string]$catalogueSource.commit.tree.sha -eq [string]$catalogueHead.commit.tree.sha
-            sourceTree = [string]$catalogueSource.commit.tree.sha
-            targetRevision = [string]$catalogueHead.sha
-        }
-        appIntegrationBaselineGapVerified = $gaps.appIntegrationBaselineGapVerified
+        sortingBaselineGapVerified = $gaps.sortingBaselineGapVerified
         cloudAgentBaselineGapVerified = $gaps.cloudAgentBaselineGapVerified
         environments = @($environmentData.environments.name)
         variables = @($variableData.variables | ForEach-Object { [ordered]@{ name = $_.name; value = $_.value } })
@@ -186,20 +161,11 @@ if ($state.repository.fullName -ne $target) {
 if (-not $state.provenanceVerified) {
     throw "Template provenance failed: $target's default-branch tree does not match $TemplateRepository at $TemplateRevision. No changes were made."
 }
-if ($state.catalogue.repository.fullName -ne $CatalogueRepository) {
-    throw "Catalogue identity mismatch: expected '$CatalogueRepository'. No changes were made."
-}
-if (-not $state.catalogue.provenanceVerified) {
-    throw "Catalogue template provenance failed: $CatalogueRepository's tree does not match $CatalogueTemplateRepository at $CatalogueTemplateRevision. A template copy has new history; matching contents are required."
-}
-if (-not $state.catalogue.repository.actionsEnabled) {
-    throw "GitHub Actions is disabled or unavailable for $CatalogueRepository. Enable the approved Actions policy before preparation."
-}
 if (-not $state.cloudAgentBaselineGapVerified) {
     throw "The selected template revision already contains the Lab 4 no-store cache policy. Seed a newly verified feature-independent issue instead of creating completed work."
 }
-if (-not $state.appIntegrationBaselineGapVerified) {
-    throw "The selected app template must keep the standalone in-memory catalogue and leave CATALOGUE_URL integration for learners. No changes were made."
+if (-not $state.sortingBaselineGapVerified) {
+    throw "The selected starter must leave the sort query contract for learners. No changes were made."
 }
 if (-not $state.repository.id -or -not $state.repository.ownerId) {
     throw "GitHub did not return repository and owner IDs. Repository identity cannot be verified."
@@ -233,8 +199,6 @@ $desiredEnvironmentVariables = [ordered]@{
 $desiredRepositoryVariables = [ordered]@{
     WORKSHOP_OUTCOME = $Outcome
     WORKSHOP_APP_SOURCE_REVISION = $TemplateRevision
-    CATALOGUE_REPOSITORY = $CatalogueRepository
-    CATALOGUE_STARTER_REVISION = $CatalogueTemplateRevision
     GITHUB_REPOSITORY_ID = [string]$state.repository.id
     GITHUB_REPOSITORY_OWNER_ID = [string]$state.repository.ownerId
 }
@@ -246,36 +210,34 @@ $desiredLabels = @(
 )
 $desiredIssues = @(
     [ordered]@{
-        marker = "<!-- workshop-feature-parent:v2 -->"
-        title = "Babazon: product search and category filtering"
+        marker = "<!-- workshop-feature-parent:v3 -->"
+        title = "KosKo: product price sorting"
         labels = @("workshop", "instructor-seeded")
         body = @"
-<!-- workshop-feature-parent:v2 -->
+<!-- workshop-feature-parent:v3 -->
 ## Outcome
 
-Deliver product search and category filtering across two repositories:
-app ``$target`` and catalogue service ``$CatalogueRepository``.
-The app already supports the shopper journey with local data. Implement
-service-side queries and the app's HTTP catalogue adapter while preserving
-browse/detail, combined/clear filters, accessible states, cart, and checkout.
-Use explicit service mode, bounded requests, validated responses, and no
-silent local-data fallback. Preserve liveness during a service outage.
+Add price low-to-high/high-to-low sorting in ``$target`` while preserving
+search, category filters, product details, cart, and checkout.
+Use Interactive mode with Fusion to agree on the default, equal-price order,
+filter/reset behavior, and accessible states. Record observable acceptance
+criteria, then review the specification and tasks in the Plan canvas.
 
 ## Starting evidence
 
-- App source: ``$TemplateRepository@$TemplateRevision``.
-- Service source: ``$CatalogueTemplateRepository@$CatalogueTemplateRevision``.
-- Record each participant copy's starting commit separately; template history is new.
+- Source: ``$TemplateRepository@$TemplateRevision``.
+- Record the participant copy's starting commit separately.
 
 ## Required path
 
 - Read `AGENTS.md`, `DESIGN.md`, and the observable acceptance criteria here.
 - Review a Copilot App Plan before implementation.
-- Create exactly four repository-qualified child issues: service contract,
-  service queries, app integration, and integration evidence. Include
+- Create exactly four child issues: sorting contract, catalogue/API,
+  sort control, and integration checks. Include
   dependencies, owned paths, prohibited paths, and focused tests.
-- Coordinate both participant repositories in one Copilot Project.
-- Integration evidence records both tested SHAs and the contract version.
+- Open the repository through Sessions in the Copilot App.
+- Coordinate agents in this repo; implementation follows Plan approval.
+- Evidence records the tested commit and exact check results.
 - Link pull requests and focused validation evidence here.
 
 This issue seeds the work boundary; it does not contain the participant solution.
@@ -294,11 +256,11 @@ JSON responses.
 
 ## Contract
 
-- Target repository: ``$target``. Link the parent Babazon outcome for context.
-- This is a separate operational follow-up, not a fifth product-discovery child.
+- Target repository: ``$target``. Link the parent KosKo outcome for context.
+- This is a separate operational follow-up, not a fifth sorting child.
 - Own only ``src/server/app.ts`` and ``tests/api.test.ts``.
 - Do not change ``src/client/**``, ``src/shared/**``, ``infra/**``,
-  ``.github/workflows/**``, the catalogue repo, or participant feature code.
+  ``.github/workflows/**`` or participant feature code.
 - Preserve the current response bodies and status codes.
 - Cover ``GET /health`` and both the ``200`` and ``503`` ``GET /ready`` paths.
 - Run ``npm test -- tests/api.test.ts``.
@@ -320,13 +282,7 @@ if (-not $state.repository.issuesEnabled) {
         Invoke-Gh @("api", "--method", "PATCH", "repos/$target", "-F", "has_issues=true")
     }
 }
-if (-not $state.catalogue.repository.issuesEnabled) {
-    Add-Operation UPDATE "catalogue repository settings" "enable Issues"
-    if (-not $DryRun -and -not $FixturePath) {
-        Invoke-Gh @("api", "--method", "PATCH", "repos/$CatalogueRepository", "-F", "has_issues=true")
-    }
-}
-Add-Operation VERIFY "repository topology" "app $target and catalogue $CatalogueRepository for this table of $TeamSize participants"
+Add-Operation VERIFY "repository topology" "one repository $target for this table of $TeamSize participants"
 
 foreach ($environment in $activeEnvironments) {
     if (@($state.environments) -contains $environment) {
@@ -399,7 +355,7 @@ if ($IncludeAzure) {
     Add-Operation VERIFY "oidc" "numeric repository ID $($state.repository.id), owner ID $($state.repository.ownerId), and exact environments"
     Add-Operation MANUAL "environment protection" "configure required reviewers in the organization UI when the repository plan supports it"
 }
-Add-Operation MANUAL "copilot project" "add both participant repositories to one Copilot Project; do not attach only the upstream templates"
+Add-Operation MANUAL "copilot session" "open $target through Sessions; confirm files and the Plan canvas are available"
 Add-Operation MANUAL "copilot fusion" "try an available Fusion effort level and record the actual capability"
 
 $report = [ordered]@{
@@ -411,11 +367,7 @@ $report = [ordered]@{
     teamSize = $TeamSize
     repositoryId = [string]$state.repository.id
     repositoryOwnerId = [string]$state.repository.ownerId
-    appStartingCommit = [string]$state.targetRevision
-    catalogueRepository = $CatalogueRepository
-    catalogueTemplateRepository = $CatalogueTemplateRepository
-    catalogueTemplateRevision = $CatalogueTemplateRevision
-    catalogueStartingCommit = [string]$state.catalogue.targetRevision
+    startingCommit = [string]$state.targetRevision
     includeAzure = [bool]$IncludeAzure
     azureScope = if ($IncludeAzure) { "/subscriptions/$AzureSubscriptionId/resourceGroups/$AzureResourceGroup" } else { $null }
     environments = @($activeEnvironments)
@@ -425,4 +377,4 @@ if ($StateOutput) {
     $report | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $StateOutput
     Write-Host "Preparation report: $StateOutput"
 }
-Write-Host "Two-repository preparation converged without client secrets. Review MANUAL operations before declaring readiness."
+Write-Host "Repository preparation converged without client secrets. Review MANUAL operations before declaring readiness."

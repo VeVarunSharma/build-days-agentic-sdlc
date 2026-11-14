@@ -9,17 +9,8 @@
   },
   "provenanceVerified": true,
   "targetRevision": "1111111111111111111111111111111111111111",
-  "catalogue": {
-    "repository": {
-      "fullName": "octo-workshop/team-01-catalogue",
-      "issuesEnabled": false,
-      "actionsEnabled": true
-    },
-    "provenanceVerified": true,
-    "targetRevision": "2222222222222222222222222222222222222222"
-  },
   "cloudAgentBaselineGapVerified": true,
-  "appIntegrationBaselineGapVerified": true,
+  "sortingBaselineGapVerified": true,
   "oidcCustomization": {
     "useImmutableSubject": true,
     "subClaimPrefix": "repo:octo-workshop@9876543/team-01@123456789"

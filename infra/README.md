@@ -8,7 +8,7 @@ and monitoring only:
 - Log Analytics: `br/public:avm/res/operational-insights/workspace:0.16.1`
 - Application Insights: `br/public:avm/res/insights/component:0.8.0`
 
-Babazon product data is deterministic and read-only, and cart state is
+KosKo product data is deterministic and read-only, and cart state is
 client-side. No persistence resource or data-plane role assignment is required.
 
 Validate:

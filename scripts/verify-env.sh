@@ -4,9 +4,6 @@ set -uo pipefail
 repository=""
 expected_revision=""
 template_repository="VeVarunSharma/build-days-agentic-sdlc"
-catalogue_repository=""
-catalogue_expected_revision=""
-catalogue_template_repository="VeVarunSharma/babazon-catalogue-service"
 include_azure=false
 subscription_id=""
 resource_group=""
@@ -25,9 +22,6 @@ while [[ $# -gt 0 ]]; do
     --repository) repository="$2"; shift 2 ;;
     --expected-revision) expected_revision="$2"; shift 2 ;;
     --template-repository) template_repository="$2"; shift 2 ;;
-    --catalogue-repository) catalogue_repository="$2"; shift 2 ;;
-    --catalogue-expected-revision) catalogue_expected_revision="$2"; shift 2 ;;
-    --catalogue-template-repository) catalogue_template_repository="$2"; shift 2 ;;
     --include-azure) include_azure=true; shift ;;
     --azure-subscription-id) subscription_id="$2"; shift 2 ;;
     --azure-resource-group) resource_group="$2"; shift 2 ;;
@@ -35,7 +29,7 @@ while [[ $# -gt 0 ]]; do
     --json-output) json_output="$2"; shift 2 ;;
     --allow-pending-cloud-validation) require_cloud=false; shift ;;
     --help)
-      echo "Usage: verify-env.sh --repository OWNER/APP --expected-revision SHA --catalogue-repository OWNER/SERVICE --catalogue-expected-revision SHA [--json-output FILE] [--include-azure --azure-subscription-id ID --azure-resource-group NAME]"
+      echo "Usage: verify-env.sh --repository OWNER/REPO --expected-revision SHA [--json-output FILE] [--include-azure --azure-subscription-id ID --azure-resource-group NAME]"
       exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -43,15 +37,9 @@ done
 
 repo_pattern='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
 sha_pattern='^[0-9a-fA-F]{40}$'
-if [[ ! "$expected_revision" =~ $sha_pattern || ! "$catalogue_expected_revision" =~ $sha_pattern ||
-      ! "$catalogue_repository" =~ $repo_pattern || ! "$template_repository" =~ $repo_pattern ||
-      ! "$catalogue_template_repository" =~ $repo_pattern ||
+if [[ ! "$expected_revision" =~ $sha_pattern || ! "$template_repository" =~ $repo_pattern ||
       ( -n "$repository" && ! "$repository" =~ $repo_pattern ) ]]; then
-  echo "Provide valid owner/repo identities and full approved --expected-revision and --catalogue-expected-revision SHAs." >&2
-  exit 2
-fi
-if [[ "$repository" == "$catalogue_repository" ]]; then
-  echo "The app and catalogue must be different repositories." >&2
+  echo "Provide a valid owner/repo and a full approved --expected-revision SHA." >&2
   exit 2
 fi
 if [[ "$include_azure" == true && ( -z "$subscription_id" || -z "$resource_group" ) ]]; then
@@ -62,7 +50,7 @@ fi
 gh_json() {
   local output
   if ! output="$(gh api "$1")"; then
-    echo "Cannot read $1. Check access to both repositories and their Actions policy." >&2
+    echo "Cannot read $1. Check repository access and Actions policy." >&2
     return 1
   fi
   printf '%s\n' "$output"
@@ -116,10 +104,6 @@ else
   if [[ -z "$repository" ]]; then
     repository="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || exit 1
   fi
-  if [[ "$repository" == "$catalogue_repository" ]]; then
-    echo "The app and catalogue must be different repositories." >&2
-    exit 2
-  fi
   state="$(jq -c --arg repo "$repository" --argjson gh "$gh_authenticated" --argjson az "$az_authenticated" \
     '.repository=$repo | .ghAuthenticated=$gh | .azAuthenticated=$az' <<<"$state")"
   if [[ "$gh_authenticated" == true && -n "$repository" ]]; then
@@ -128,15 +112,8 @@ else
     branch="$(jq -r '.default_branch' <<<"$repo_json")"
     head_json="$(gh_json "repos/$repository/commits/$branch")" || exit 1
     actions_json="$(gh_json "repos/$repository/actions/permissions")" || exit 1
-    catalogue_json="$(gh_json "repos/$catalogue_repository")" || exit 1
-    catalogue_source="$(gh_json "repos/$catalogue_template_repository/commits/$catalogue_expected_revision")" || exit 1
-    catalogue_branch="$(jq -r '.default_branch' <<<"$catalogue_json")"
-    catalogue_head="$(gh_json "repos/$catalogue_repository/commits/$catalogue_branch")" || exit 1
-    catalogue_actions="$(gh_json "repos/$catalogue_repository/actions/permissions")" || exit 1
     state="$(jq -c --argjson r "$repo_json" --argjson a "$actions_json" --argjson s "$source_json" --argjson h "$head_json" \
-      --argjson c "$catalogue_json" --argjson cs "$catalogue_source" --argjson ch "$catalogue_head" --argjson ca "$catalogue_actions" \
-      '.repository=$r.full_name | .issuesEnabled=$r.has_issues | .actionsEnabled=$a.enabled | .provenanceVerified=($s.commit.tree.sha == $h.commit.tree.sha) | .targetRevision=$h.sha |
-       .catalogue={repository:{fullName:$c.full_name,issuesEnabled:$c.has_issues,actionsEnabled:$ca.enabled},provenanceVerified:($cs.commit.tree.sha == $ch.commit.tree.sha),targetRevision:$ch.sha}' <<<"$state")"
+      '.repository=$r.full_name | .issuesEnabled=$r.has_issues | .actionsEnabled=$a.enabled | .provenanceVerified=($s.commit.tree.sha == $h.commit.tree.sha) | .targetRevision=$h.sha' <<<"$state")"
     if [[ "$include_azure" == true ]]; then
     oidc_json="$(gh api "repos/$repository/actions/oidc/customization/sub" 2>/dev/null || echo '{}')"
     env_json="$(gh api --paginate "repos/$repository/environments" 2>/dev/null || echo '{"environments":[]}')"
@@ -191,26 +168,6 @@ for pair in "issues:issuesEnabled" "actions:actionsEnabled"; do
   if [[ "$(jq -r ".$key // false" <<<"$state")" == true ]]; then add_result PASS "github.$name" enabled enabled ""
   else add_result FAIL "github.$name" "disabled or unavailable" enabled "Ask an organization owner to enable GitHub $name."; fi
 done
-actual_catalogue="$(jq -r '.catalogue.repository.fullName // ""' <<<"$state")"
-if [[ "$actual_catalogue" == "$catalogue_repository" && "$actual_catalogue" != "$actual_repo" ]]; then
-  add_result PASS catalogue.identity "$actual_catalogue" "$catalogue_repository" ""
-else
-  add_result FAIL catalogue.identity "$actual_catalogue" "$catalogue_repository" "Create your own catalogue template copy and pass its owner/name, distinct from the app repo."
-fi
-if [[ "$(jq -r '.catalogue.provenanceVerified // false' <<<"$state")" == true ]]; then
-  add_result PASS catalogue.template-revision "$catalogue_expected_revision" "fresh service tree matches the approved source tree; ancestry is not required" ""
-else
-  add_result FAIL catalogue.template-revision "starter tree does not match" "$catalogue_expected_revision" "Use the approved template contents; a template copy has new commit history."
-fi
-for pair in "issues:issuesEnabled" "actions:actionsEnabled"; do
-  name="${pair%%:*}"; key="${pair#*:}"
-  if [[ "$(jq -r ".catalogue.repository.$key // false" <<<"$state")" == true ]]; then
-    add_result PASS "catalogue.$name" enabled enabled ""
-  else
-    add_result FAIL "catalogue.$name" "disabled or unavailable" enabled "Enable GitHub $name for $catalogue_repository."
-  fi
-done
-
 if [[ "$include_azure" == true ]]; then
 if [[ "$(jq -r '.immutableOidc // false' <<<"$state")" == true ]]; then
   add_result PASS github.oidc-subject "$(jq -r '.oidcPrefix' <<<"$state")" "immutable numeric owner/repository prefix" ""
@@ -240,16 +197,16 @@ else
   add_result ADVISORY cloud.oidc-infrastructure NOT_YET_RUN "successful run before Lab 1" "Run infrastructure validation before the readiness gate."
 fi
 fi
-add_result MANUAL copilot.app "shell detection is not reliable" "Copilot App installed, signed in, and both repositories opened" "Verify both participant copies in the App."
-add_result MANUAL copilot.project "UI capability must be checked" "one Copilot Project contains both repositories" "Create the Project and record unavailable preview access honestly."
+add_result MANUAL copilot.app "shell detection is not reliable" "Copilot App installed and signed in" "Open the App and record this check manually."
+add_result MANUAL copilot.session "UI capability must be checked" "repository Session with files and Plan canvas" "Use Sessions > + > Start session in, select your repo, and confirm the file editor and Plan canvas."
 add_result MANUAL copilot.fusion "model availability must be checked" "a bounded Fusion prompt has been tried" "Select an available Fusion effort level and run the opening prompt."
 add_result MANUAL ghaw.engine "billing and policy must be checked" "eligible per-run Copilot inference before Lab 5" "Confirm organization billing and Actions policy; do not add a long-lived token workaround."
 
 evidence_source="live"
 [[ -n "$fixture" ]] && evidence_source="fixture"
-document="$(jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg evidenceSource "$evidence_source" --arg repository "$actual_repo" --arg catalogueRepository "$actual_catalogue" \
-  --arg appSource "$expected_revision" --arg serviceSource "$catalogue_expected_revision" --argjson state "$state" --argjson includeAzure "$include_azure" --argjson results "$results" \
-  '{generatedAt:$generatedAt,evidenceSource:$evidenceSource,repository:$repository,catalogueRepository:$catalogueRepository,sourceRevisions:{app:$appSource,catalogue:$serviceSource},startingCommits:{app:($state.targetRevision // ""),catalogue:($state.catalogue.targetRevision // "")},includeAzure:$includeAzure,results:$results,summary:{pass:([$results[]|select(.status=="PASS")]|length),fail:([$results[]|select(.status=="FAIL")]|length),advisory:([$results[]|select(.status=="ADVISORY")]|length),manual:([$results[]|select(.status=="MANUAL")]|length)}}')"
+document="$(jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg evidenceSource "$evidence_source" --arg repository "$actual_repo" \
+  --arg sourceRevision "$expected_revision" --argjson state "$state" --argjson includeAzure "$include_azure" --argjson results "$results" \
+  '{generatedAt:$generatedAt,evidenceSource:$evidenceSource,repository:$repository,sourceRevision:$sourceRevision,startingCommit:($state.targetRevision // ""),includeAzure:$includeAzure,results:$results,summary:{pass:([$results[]|select(.status=="PASS")]|length),fail:([$results[]|select(.status=="FAIL")]|length),advisory:([$results[]|select(.status=="ADVISORY")]|length),manual:([$results[]|select(.status=="MANUAL")]|length)}}')"
 if [[ -n "$json_output" ]]; then printf '%s\n' "$document" >"$json_output"; echo "Structured results: $json_output"; fi
 if (( fail_count > 0 )); then
   echo "PREFLIGHT BLOCKED: $fail_count required check(s) failed."

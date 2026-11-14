@@ -14,7 +14,7 @@ This directory composes Azure infrastructure for the workshop application.
 
 - The entry point is `main.bicep`; deployments are scoped to the assigned resource group.
 - Keep AVM references pinned to the versions documented in `README.md`.
-- Keep this optional infrastructure generic. Babazon product data is
+- Keep this optional infrastructure generic. KosKo product data is
   deterministic and the cart is client-side, so no commerce persistence
   resource belongs in the baseline.
 

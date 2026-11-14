@@ -20,7 +20,7 @@ var applicationInsightsName = 'appi-workshop-${uniqueSuffix}'
 var appServicePlanName = 'plan-workshop-${uniqueSuffix}'
 var webAppName = 'app-workshop-${uniqueSuffix}'
 var commonTags = union(tags, {
-  workload: 'babazon-workshop'
+  workload: 'kosko-workshop'
   team: teamIdentifier
   managedBy: 'bicep'
 })

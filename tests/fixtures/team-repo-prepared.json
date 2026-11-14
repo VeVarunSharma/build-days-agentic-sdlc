@@ -9,27 +9,16 @@
   },
   "provenanceVerified": true,
   "targetRevision": "1111111111111111111111111111111111111111",
-  "catalogue": {
-    "repository": {
-      "fullName": "octo-workshop/team-01-catalogue",
-      "issuesEnabled": true,
-      "actionsEnabled": true
-    },
-    "provenanceVerified": true,
-    "targetRevision": "2222222222222222222222222222222222222222"
-  },
   "cloudAgentBaselineGapVerified": true,
-  "appIntegrationBaselineGapVerified": true,
+  "sortingBaselineGapVerified": true,
   "oidcCustomization": {
     "useImmutableSubject": true,
     "subClaimPrefix": "repo:octo-workshop@9876543/team-01@123456789"
   },
   "environments": ["workshop-validation", "workshop"],
   "variables": [
-    {"name": "WORKSHOP_OUTCOME", "value": "Babazon product search and category filtering across app and catalogue service"},
+    {"name": "WORKSHOP_OUTCOME", "value": "KosKo product price sorting"},
     {"name": "WORKSHOP_APP_SOURCE_REVISION", "value": "0123456789abcdef0123456789abcdef01234567"},
-    {"name": "CATALOGUE_REPOSITORY", "value": "octo-workshop/team-01-catalogue"},
-    {"name": "CATALOGUE_STARTER_REVISION", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
     {"name": "GITHUB_REPOSITORY_ID", "value": "123456789"},
     {"name": "GITHUB_REPOSITORY_OWNER_ID", "value": "9876543"}
   ],
@@ -56,7 +45,7 @@
     {"name": "human-revision-required", "color": "d93f0b", "description": "Requires a human-requested revision before merge"}
   ],
   "issues": [
-    {"number": 1, "title": "Babazon: product search and category filtering", "state": "open", "body": "<!-- workshop-feature-parent:v2 -->"},
+    {"number": 1, "title": "KosKo: product price sorting", "state": "open", "body": "<!-- workshop-feature-parent:v3 -->"},
     {"number": 2, "title": "Cloud agent: prevent caching of health and readiness responses", "state": "open", "body": "<!-- cloud-agent-revision-exercise:v1 -->"}
   ],
   "secretNames": [],

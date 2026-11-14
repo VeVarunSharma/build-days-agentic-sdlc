@@ -27,7 +27,7 @@ describe("optional deployment evidence contract", () => {
     expect(workflow).not.toMatch(/client-secret|publish-profile/i);
   });
 
-  it("publishes evidence only after all live Babazon checks", () => {
+  it("publishes evidence only after all live KosKo checks", () => {
     const verify = workflow.indexOf("Verify deployed health, readiness, catalogue, search, filter, and page");
     const create = workflow.indexOf("Create machine-readable deployment evidence");
     const upload = workflow.indexOf("Upload deployment evidence");

@@ -1,4 +1,4 @@
-# Lab 4: Cloud agent revision
+# Lab 4: Cloud agent
 
 ## Outcome
 
@@ -6,12 +6,13 @@ Delegate a narrow change and review a human-requested revision.
 
 ## Prerequisites
 
-Use the seeded **app-repo** follow-up issue. It is separate from the four
-product-discovery children and owns only `src/server/app.ts` and `tests/api.test.ts`.
+Use the seeded follow-up issue in this repo. It is separate from the four
+sorting children and owns only `src/server/app.ts` and `tests/api.test.ts`.
 
 ## Participant steps
 
-**Use:** GitHub coding agent from that issue.
+**Use:** Open the issue on GitHub and assign it to Copilot's cloud agent.
+Review its pull request on GitHub or in the App.
 
 **Attach:** The issue, repo guides, and current API tests.
 
@@ -41,3 +42,5 @@ record `capability-unavailable`.
 ## Stretch
 
 Identify another operational edge case without expanding ownership.
+
+[Previous: Build, test, deploy](03-build-test-deploy.md) | [README](../../README.md) | [Next: Agentic workflows](05-gh-aw.md)

@@ -1,74 +1,66 @@
-# Lab 3: Integrate and prove
+# Lab 3: Build, test, deploy
 
 ## Outcome
 
-Prove the shopper journey works through the service and record both tested commits.
+Integrate price sorting, prove the shopper journey, and optionally deploy it.
 
 ## Prerequisites
 
-Contract, service-query, and app-integration changes are reviewable and pass
-focused checks. `CATALOGUE_URL` must now be implemented.
+Contract, API, and UI changes are reviewable and pass focused checks.
 
 ## Participant steps
 
-**Use:** Interactive mode on the integration child, within the Project.
+**Use:** The integration Session, terminal, and browser preview.
 
-**Attach:** The parent, Plan, child issues, both repos' changes, contract, and CI.
+**Attach:** The parent, reviewed Plan, child changes, and CI results.
 
-**Prompt:** Integrate only reviewed changes. Verify browse/detail, text/category
-and combined filters, clear/empty states, cart, and checkout through the real
-service. Cover startup outage, restart/retry, invalid responses, and timeouts.
-Keep liveness independent of readiness. Fix integration defects only.
+**Prompt:** Integrate the reviewed sorting work. Verify both price directions,
+the agreed default and equal-price order, search/category combinations, reset,
+empty results, and errors. Preserve cart and checkout. Fix integration defects
+only. Run focused checks, then the full check. Isolate browser projects' server
+state so they do not share a rate-limit budget; keep production limits unchanged.
 
-**Expect:** A working two-process path, not proof based only on browser route mocks.
+**Expect:** A working feature and evidence tied to the tested commit.
 
-**Decide:** Review evidence against the parent criteria before merging.
+**Decide:** Inspect the diff and results before merge.
 
-Use separate terminals:
-
-```powershell
-# Service repo
-npm run build
-$env:PORT = "3001"
-npm start
-```
+In the Session's terminal:
 
 ```powershell
-# App repo, after adapter implementation
-npm run build
+npm run check
 $env:NODE_ENV = "production"
 $env:PORT = "3000"
-$env:CATALOGUE_URL = "http://127.0.0.1:3001"
 npm start
 ```
 
-Open the application page at `http://127.0.0.1:3000`. Stop only the service's own
-process, then reload/change a filter to make a new request. An already-loaded
-catalogue is not fallback evidence. Expect `/health` 200, `/ready` 503, and a
-visible retryable error. Restart the service and verify recovery.
+Open `http://127.0.0.1:3000` in the browser or ask Copilot to open a browser
+preview. Exercise sorting with filters. Stop only the server process you started.
 
-Extend Playwright/CI to start both processes; the original setup starts only
-the app. Pin an exact reviewed service SHA in CI. The app's `GITHUB_TOKEN` does
-not automatically grant access to a private service repo.
+### Optional deployment
+
+If your instructor prepared Azure, follow [infra/README.md](../../infra/README.md).
+Use the protected deployment workflow and required approval. Verify the app page,
+`/health`, `/ready`, `/api/products`, and the agreed sorting queries.
+Keep OIDC and existing checks; do not add credentials or skip approvals.
 
 ## Expected repository artifacts
 
-Linked changes for all four children, both tested SHAs, and local/browser/CI receipts.
+Reviewed changes, local/browser/CI results, and optional deployment evidence.
 
 ## Verification
 
-Run `npm run check` in both repos. Record commands, results, contract version,
-SHAs, and run links. Check `/api/products`, product detail, search/category
-queries, and the application page alongside health/readiness.
-
-Azure is optional. The existing [deployment](../../infra/README.md) targets the
-standalone app, not the two-service topology.
+Confirm `npm run check` and required GitHub checks pass on the final head.
+Record exact commands, results, commit, and run links. A local preview is not
+proof of an Azure deployment.
 
 ## Recovery
 
-Recover the last reviewed app/service commit pair, not independently moving branches.
+Return to the last reviewed commit and reapply only reviewed changes.
+Without Azure access, finish local/browser verification and record deployment
+as unavailable.
 
 ## Stretch
 
-Return a malformed service response and confirm the app rejects it without
-corrupting cart state or substituting local data.
+Add a regression test for an equal-price or filter/sort interaction.
+
+[Previous: Multi-agent orchestration](02-multi-agent-orchestration.md) | [README](../../README.md) | [Next: Cloud agent](04-cloud-agent.md)
