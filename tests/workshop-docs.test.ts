@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
 const coreLabs = [
-  ["docs/labs/01-outcome-and-plan.md", "SDD with the GitHub Copilot App"],
+  ["docs/labs/01-SDD-with-the-GHCP-app.md", "SDD with the GitHub Copilot App"],
   ["docs/labs/02-multi-agent-orchestration.md", "Multi-agent orchestration"],
   ["docs/labs/03-build-test-deploy.md", "Build, test, deploy"],
   ["docs/labs/04-cloud-agent.md", "Cloud agent"],
@@ -48,6 +48,11 @@ describe("Session-first workshop documentation", () => {
     expect(text).toContain("advanced participants");
     expect(text).toContain("not required for workshop completion");
     expect(text).toContain("Your own idea is welcome");
+  });
+
+  it("keeps instructor preparation out of the participant README", () => {
+    expect(read("README.md")).not.toContain("<summary>Instructor preparation</summary>");
+    expect(read("README.md")).not.toContain("prepare-team-repo.ps1");
   });
 
   it.each(coreLabs)("uses the requested title for %s", (path, title) => {
@@ -119,7 +124,7 @@ describe("Session-first workshop documentation", () => {
     expect(read(coreLabs[1][0]).split("## Stretch")[1]).toContain("/fleet");
     for (const path of ownedTextFiles) {
       expect(read(path), `${path} retains the removed setup`).not.toMatch(
-        /Projects\s*>\s*\+|CatalogueRepository|CATALOGUE_URL|babazon-catalogue-service|starter pair|both tested SHAs|app\/service commit/i,
+        /Projects\s*>\s*\+|CatalogueRepository|CATALOGUE_URL|starter pair|both tested SHAs|app\/service commit/i,
       );
       expect(read(path)).not.toMatch(/\b(?:openspec|opsx|spec.?kit)\b/i);
     }

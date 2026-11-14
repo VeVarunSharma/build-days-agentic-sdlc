@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+$")][string]$Repository,
     [Parameter(Mandatory)][ValidatePattern("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")][string]$TemplateRepository,
     [Parameter(Mandatory)][ValidatePattern("^[0-9a-fA-F]{40}$")][string]$TemplateRevision,
-    [string]$Outcome = "Babazon product price sorting",
+    [string]$Outcome = "KosKo product price sorting",
     [Parameter(Mandatory)][ValidateRange(2, 3)][int]$TeamSize,
     [Parameter(Mandatory)][ValidatePattern("^[a-z0-9][a-z0-9-]{1,18}[a-z0-9]$")][string]$TeamId,
     [switch]$IncludeAzure,
@@ -211,7 +211,7 @@ $desiredLabels = @(
 $desiredIssues = @(
     [ordered]@{
         marker = "<!-- workshop-feature-parent:v3 -->"
-        title = "Babazon: product price sorting"
+        title = "KosKo: product price sorting"
         labels = @("workshop", "instructor-seeded")
         body = @"
 <!-- workshop-feature-parent:v3 -->
@@ -256,7 +256,7 @@ JSON responses.
 
 ## Contract
 
-- Target repository: ``$target``. Link the parent Babazon outcome for context.
+- Target repository: ``$target``. Link the parent KosKo outcome for context.
 - This is a separate operational follow-up, not a fifth sorting child.
 - Own only ``src/server/app.ts`` and ``tests/api.test.ts``.
 - Do not change ``src/client/**``, ``src/shared/**``, ``infra/**``,

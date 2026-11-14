@@ -18,7 +18,7 @@ and finish setup. Select Copilot Fusion in that repository Session.
 
 **Attach:** `AGENTS.md`, `DESIGN.md`, and the product query/catalogue code.
 
-**Prompt:** Help me specify price low-to-high/high-to-low sorting for Babazon.
+**Prompt:** Help me specify price low-to-high/high-to-low sorting for KosKo.
 Inspect what already works. Ask about default order, equal prices, filter/reset
 behavior, accessibility, and failure cases. Keep search, category filters, cart,
 and checkout working. Do not edit code yet.

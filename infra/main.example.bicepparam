@@ -5,5 +5,5 @@ param location = 'eastus2'
 param appServicePlanSku = 'B1'
 param tags = {
   environment: 'workshop'
-  application: 'babazon'
+  application: 'kosko'
 }

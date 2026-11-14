@@ -2,10 +2,10 @@
 
 # Build Days: Agentic SDLC
 
-Build a feature in Babazon, a fictional storefront, using the GitHub Copilot
+Build a feature in KosKo, a fictional storefront, using the GitHub Copilot
 App. You'll plan the work, coordinate agents, review changes, and automate QA.
 
-**[Start Lab 1: SDD with the GitHub Copilot App](docs/labs/01-outcome-and-plan.md)**
+**[Start Lab 1: SDD with the GitHub Copilot App](docs/labs/01-SDD-with-the-GHCP-app.md)**
 
 ## Labs
 
@@ -13,7 +13,7 @@ Follow these in order. Each lab says where to work and what to check.
 
 | Lab | Where you'll work |
 |---|---|
-| [1. SDD with the GitHub Copilot App](docs/labs/01-outcome-and-plan.md) | Repository Session, Fusion, Plan canvas |
+| [1. SDD with the GitHub Copilot App](docs/labs/01-SDD-with-the-GHCP-app.md) | Repository Session, Fusion, Plan canvas |
 | [2. Multi-agent orchestration](docs/labs/02-multi-agent-orchestration.md) | Main Session and agents in the same repo |
 | [3. Build, test, deploy](docs/labs/03-build-test-deploy.md) | Terminal, browser, CI; optional Azure deployment |
 | [4. Cloud agent](docs/labs/04-cloud-agent.md) | GitHub issue and pull request |
@@ -65,31 +65,6 @@ gh aw version
 Do not add long-lived credentials. Record unavailable features honestly.
 A forecast with no sampled runs means unknown cost, not free execution.
 
-<details>
-<summary>Instructor preparation</summary>
-
-Use the approved starter SHA from the workshop's delivery issue before learner
-edits. Replace the placeholders and review the dry-run before omitting `-DryRun`:
-
-```powershell
-.\scripts\prepare-team-repo.ps1 `
-  -Organization YOUR-OWNER -Repository YOUR-REPO `
-  -TemplateRepository VeVarunSharma/build-days-agentic-sdlc `
-  -TemplateRevision SOURCE_SHA `
-  -TeamSize 2 -TeamId team01 -Confirmation PREPARE -DryRun
-
-.\scripts\verify-env.ps1 `
-  -Repository YOUR-OWNER/YOUR-REPO -ExpectedRevision SOURCE_SHA
-```
-
-Preparation checks the fresh starter and seeds the sorting and Cloud agent
-issues. Those starter-only checks do not belong in learner CI. App sign-in,
-Session, Plan canvas, and Fusion checks are manual.
-
-Azure is optional. Add `-IncludeAzure` only with the assigned scope/OIDC settings;
-see [infra/README.md](infra/README.md). Bash preflight has equivalent arguments.
-</details>
-
 ## References
 
 - [App Sessions and modes](https://docs.github.com/en/copilot/how-tos/github-copilot-app/agent-sessions)
@@ -101,4 +76,4 @@ see [infra/README.md](infra/README.md). Bash preflight has equivalent arguments.
 - [Agentic Workflows GA](https://github.blog/changelog/2026-10-28-github-agentic-workflows-generally-available/)
   and [setup guide](https://github.github.com/gh-aw/setup/quick-start/).
 
-Babazon is fictional. Do not copy Amazon branding, assets, text, or trade dress.
+KosKo is fictional. Do not copy another retailer's branding, assets, text, or trade dress.

@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Babazon is a fictional React and Express storefront for an Agentic SDLC
+KosKo is a fictional React and Express storefront for an Agentic SDLC
 workshop. The required labs use this repository through a Copilot App Session.
 No companion service or Project setup is required.
 
-Use an original visual identity. Do not copy Amazon branding, assets, text,
+Use an original visual identity. Do not copy another retailer's branding, assets, text,
 page designs, or trade dress.
 
 ## Native SDD workflow

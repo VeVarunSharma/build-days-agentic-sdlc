@@ -32,7 +32,7 @@ const jsonResponse = (body: unknown, status = 200): Response =>
     headers: { "content-type": "application/json" },
   });
 
-describe("Babazon client", () => {
+describe("KosKo client", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("loads products and supports filters and an empty result", async () => {
@@ -45,6 +45,7 @@ describe("Babazon client", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    expect(screen.getByRole("link", { name: "KosKo home" })).toHaveAttribute("href", "#catalogue");
     expect(screen.getByRole("status")).toHaveTextContent("Loading products");
     expect(await screen.findByRole("heading", { name: product.name })).toBeVisible();
 

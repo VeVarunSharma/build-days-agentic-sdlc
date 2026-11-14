@@ -1,7 +1,7 @@
 # Agent guide
 
 This repository is an issue-first Agentic SDLC workshop and a deployable
-Babazon.com starter. Keep developer instructions brief and task-focused.
+KosKo starter. Keep developer instructions brief and task-focused.
 Link to authoritative context instead of repeating it.
 
 ## Read first

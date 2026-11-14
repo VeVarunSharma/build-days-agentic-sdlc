@@ -17,7 +17,7 @@
   },
   "environments": ["workshop-validation", "workshop"],
   "variables": [
-    {"name": "WORKSHOP_OUTCOME", "value": "Babazon product price sorting"},
+    {"name": "WORKSHOP_OUTCOME", "value": "KosKo product price sorting"},
     {"name": "WORKSHOP_APP_SOURCE_REVISION", "value": "0123456789abcdef0123456789abcdef01234567"},
     {"name": "GITHUB_REPOSITORY_ID", "value": "123456789"},
     {"name": "GITHUB_REPOSITORY_OWNER_ID", "value": "9876543"}
@@ -45,7 +45,7 @@
     {"name": "human-revision-required", "color": "d93f0b", "description": "Requires a human-requested revision before merge"}
   ],
   "issues": [
-    {"number": 1, "title": "Babazon: product price sorting", "state": "open", "body": "<!-- workshop-feature-parent:v3 -->"},
+    {"number": 1, "title": "KosKo: product price sorting", "state": "open", "body": "<!-- workshop-feature-parent:v3 -->"},
     {"number": 2, "title": "Cloud agent: prevent caching of health and readiness responses", "state": "open", "body": "<!-- cloud-agent-revision-exercise:v1 -->"}
   ],
   "secretNames": [],

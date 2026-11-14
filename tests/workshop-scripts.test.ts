@@ -291,7 +291,7 @@ $cases | ConvertTo-Json -Compress
       detail: expect.stringContaining("one repository octo-workshop/team-01"),
     }));
     expect(report.operations).toContainEqual(
-      expect.objectContaining({ action: "CREATE", resource: "issue:Babazon: product price sorting" }),
+      expect.objectContaining({ action: "CREATE", resource: "issue:KosKo: product price sorting" }),
     );
   }, 20_000);
 

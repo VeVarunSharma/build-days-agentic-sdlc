@@ -55,4 +55,4 @@ complete the children sequentially in the main Session.
 Try `/fleet` for ready, non-overlapping tasks in a fresh exercise copy.
 Do not launch a second owner for work already running.
 
-[Previous: SDD](01-outcome-and-plan.md) | [README](../../README.md) | [Next: Build, test, deploy](03-build-test-deploy.md)
+[Previous: SDD](01-SDD-with-the-GHCP-app.md) | [README](../../README.md) | [Next: Build, test, deploy](03-build-test-deploy.md)
